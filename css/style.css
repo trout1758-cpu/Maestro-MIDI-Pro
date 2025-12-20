@@ -1,0 +1,248 @@
+:root {
+    --accent-blue: #2563eb;
+    --disabled-gray: #e5e7eb;
+    --disabled-text: #9ca3af;
+}
+
+body { 
+    font-family: 'Merriweather', serif; 
+    background-color: #e5e5e5; 
+    color: #1c1917; 
+    overflow: hidden; 
+    user-select: none; 
+}
+
+/* --- UI COMPONENTS --- */
+.maestro-btn {
+    background: white;
+    border: 1px solid #d4d4d8;
+    border-bottom-width: 4px;
+    border-radius: 8px;
+    color: #4b5563;
+    transition: all 0.1s ease-in-out;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Noto Music', serif; font-size: 1.8rem;
+    cursor: pointer; position: relative;
+    min-width: 3.5rem; 
+    height: 3.5rem;
+}
+.maestro-btn:hover { background: #fafafa; transform: translateY(-1px); }
+.maestro-btn:active { transform: translateY(1px); border-bottom-width: 1px; margin-top: 3px; }
+
+.maestro-btn.active {
+    background: #eff6ff; border-bottom-width: 1px; margin-top: 3px;
+    border-color: var(--accent-blue); color: var(--accent-blue);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Grayed out / Placeholder Tools */
+.maestro-btn.placeholder {
+    opacity: 0.8;
+    cursor: default;
+    background: #fff;
+    border-color: #e5e7eb;
+    color: #6b7280;
+}
+.maestro-btn.placeholder:hover {
+    transform: translateY(-1px);
+    border-color: #cbd5e1;
+    color: #374151;
+}
+
+/* Specialized Buttons */
+.sig-btn {
+    min-width: 2.5rem; height: 2.2rem;
+    font-size: 0.75rem; font-family: sans-serif; font-weight: 700;
+    padding: 0; border-bottom-width: 2px;
+}
+.key-btn {
+    min-width: 2rem; height: 2.2rem;
+    font-size: 0.8rem; font-family: sans-serif; font-weight: 700;
+    padding: 0; border-bottom-width: 2px;
+}
+.note-grid-btn {
+    min-width: 3rem; height: 3rem; font-size: 1.6rem;
+}
+/* Double Width Button - REDUCED HEIGHT to 75% */
+.double-width-btn {
+    min-width: 7.5rem; /* ~2x normal + gap */
+    height: 2.6rem; /* Reduced from 3.5rem */
+    font-size: 1.1rem;
+}
+
+/* Dropdown for Triplet Button */
+.tuplet-dropdown {
+    position: absolute; top: 100%; right: 0; 
+    background: white; border: 1px solid #d4d4d8; 
+    border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    z-index: 60; display: none; min-width: 140px;
+    margin-top: 4px;
+}
+.tuplet-dropdown.show { display: block; }
+.tuplet-item {
+    padding: 8px 12px; font-size: 0.85rem; font-family: sans-serif; font-weight: bold;
+    color: #4b5563; cursor: pointer; border-bottom: 1px solid #f3f4f6;
+    display: flex; justify-content: space-between;
+}
+.tuplet-item:last-child { border-bottom: none; }
+.tuplet-item:hover { background-color: #f9fafb; color: var(--accent-blue); }
+
+/* Tab Buttons */
+.tab-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #6b7280;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+.tab-btn:hover { color: #374151; }
+.tab-btn.active {
+    color: var(--accent-blue);
+    border-bottom-color: var(--accent-blue);
+}
+
+/* Disabled Toolbar State */
+.toolbar-disabled .maestro-btn, 
+.toolbar-disabled .tab-btn { opacity: 0.4; pointer-events: none; filter: grayscale(100%); }
+.toolbar-disabled { position: relative; }
+.toolbar-disabled::after {
+    content: "Select a Part to Begin";
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; font-weight: bold; color: #94a3b8;
+    z-index: 50; backdrop-filter: blur(1px);
+}
+
+/* --- LAYOUT STATES --- */
+#main-header { display: flex; }
+#calibration-header { display: none; }
+#control-deck { display: flex; }
+#calibration-footer { display: none; }
+
+body.calibration-mode #main-header { display: none; }
+body.calibration-mode #calibration-header { display: flex; }
+body.calibration-mode #control-deck { display: none; } 
+body.calibration-mode #calibration-footer { display: flex; }
+
+#calibration-footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 64px;
+    background: white; border-top: 1px solid #e2e8f0;
+    z-index: 60;
+    align-items: center; justify-content: center; gap: 16px;
+    box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.1);
+}
+
+/* --- CANVAS ELEMENTS --- */
+#viewport {
+    background-color: #52525b; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    position: relative; overflow: auto;
+    flex-grow: 1; 
+}
+#viewport.grab-mode { cursor: grab; }
+#viewport.grabbing { cursor: grabbing; }
+
+#canvas-wrapper {
+    background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    transform-origin: 0 0; position: relative; 
+    min-height: 800px; min-width: 600px;
+}
+#overlay-layer {
+    position: absolute; top: 0; left: 0; 
+    pointer-events: none; z-index: 10;
+}
+
+/* --- VISUALS --- */
+.cal-line {
+    position: absolute; left: 0; width: 100%; height: 2px;
+    cursor: ns-resize; pointer-events: auto; z-index: 100;
+}
+.cal-line.top { background-color: rgba(239, 68, 68, 0.8); border-bottom: 1px solid red; }
+.cal-line.bottom { background-color: rgba(59, 130, 246, 0.8); border-top: 1px solid blue; }
+.cal-line::after { content: ''; position: absolute; top: -10px; bottom: -10px; left: 0; right: 0; } 
+
+.ghost-line {
+    position: absolute; left: 0; width: 100%; height: 2px;
+    pointer-events: none; z-index: 90; opacity: 0.6; border-style: dashed;
+}
+.ghost-line.top { border-bottom: 2px dashed red; }
+.ghost-line.bottom { border-top: 2px dashed blue; }
+
+/* GHOST NOTE */
+.ghost-note {
+    position: absolute; 
+    background-color: rgba(37, 99, 235, 0.6); 
+    border: 1px solid #1d4ed8;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg);
+    pointer-events: none; z-index: 200;
+    display: none; 
+    transition: top 0.05s ease-out; 
+}
+.ghost-note.visible { display: block; }
+
+.ghost-note.rest {
+     background-color: transparent;
+     border: none;
+     border-radius: 0;
+     font-family: 'Noto Music';
+     color: rgba(239, 68, 68, 0.6);
+     font-size: 24px; 
+     display: none;
+     align-items: center; justify-content: center;
+     transform: translate(-50%, -50%);
+}
+.ghost-note.rest.visible { display: flex; }
+
+/* PLACED NOTE */
+.placed-note {
+    position: absolute; 
+    background-color: #2563eb; 
+    border-radius: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg);
+    pointer-events: auto; cursor: pointer; z-index: 50;
+}
+.placed-note:hover { background-color: #1e40af; }
+
+.placed-note.rest {
+     background-color: transparent;
+     border: none;
+     border-radius: 0;
+     font-family: 'Noto Music';
+     color: #ef4444;
+     font-size: 24px; 
+     display: flex; align-items: center; justify-content: center;
+     transform: translate(-50%, -50%);
+}
+
+/* PITCH INDICATOR */
+#pitch-display {
+    font-family: 'Noto Music', sans-serif;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2563eb;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* --- DROPDOWNS & MODALS --- */
+.dropdown-menu {
+    display: none; position: absolute; top: 100%; left: 0; width: 240px;
+    background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); 
+    z-index: 100; 
+}
+.dropdown-menu.show { display: block; }
+
+.modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+
+.part-item {
+    display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer;
+}
+.part-item:hover { background-color: #f8fafc; }
+.part-item.active { background-color: #eff6ff; border-left: 4px solid var(--accent-blue); }
