@@ -251,21 +251,41 @@
                 </div>
             </div>
 
-            <!-- 5. DYNAMICS (Placeholders) -->
-            <div id="tools-dynamics" class="flex gap-3 items-center hidden">
-                 <button class="maestro-btn placeholder" title="mf">𝆐𝆑</button>
-                 <button class="maestro-btn placeholder" title="f">𝆑</button>
-                 <button class="maestro-btn placeholder" title="ff">𝆑𝆑</button>
-                 <button class="maestro-btn placeholder" title="fff">𝆑𝆑𝆑</button>
-                 <div class="w-px h-8 bg-gray-300 mx-1"></div>
-                 <button class="maestro-btn placeholder" title="mp">𝆐𝆏</button>
-                 <button class="maestro-btn placeholder" title="p">𝆏</button>
-                 <button class="maestro-btn placeholder" title="pp">𝆏𝆏</button>
-                 <button class="maestro-btn placeholder" title="ppp">𝆏𝆏𝆏</button>
-                 <div class="w-px h-8 bg-gray-300 mx-1"></div>
-                 <button class="maestro-btn placeholder text-sm italic font-serif" title="sfz">sfz</button>
-                 <button class="maestro-btn placeholder text-2xl" title="Crescendo">&lt;</button>
-                 <button class="maestro-btn placeholder text-2xl" title="Diminuendo">&gt;</button>
+            <!-- 5. DYNAMICS (Refactored Layout) -->
+            <div id="tools-dynamics" class="flex gap-6 items-center justify-center w-full hidden">
+                <!-- Dynamics Grid -->
+                <div class="flex flex-col gap-2">
+                    <!-- Top Row: Louds & Crescendo -->
+                    <div class="flex gap-2 items-center">
+                         <button class="maestro-btn placeholder" title="mf">𝆐𝆑</button>
+                         <button class="maestro-btn placeholder" title="f">𝆑</button>
+                         <button class="maestro-btn placeholder" title="ff">𝆑𝆑</button>
+                         <button class="maestro-btn placeholder" title="fff">𝆑𝆑𝆑</button>
+                         <!-- Crescendo: Double width, stretched hairpin -->
+                         <button class="maestro-btn placeholder double-width-btn flex items-center justify-center overflow-hidden" title="Crescendo">
+                            <span class="text-3xl font-light transform scale-x-[2.5] origin-center -mt-1">&lt;</span>
+                         </button>
+                    </div>
+                    <!-- Bottom Row: Softs & Diminuendo -->
+                    <div class="flex gap-2 items-center">
+                         <button class="maestro-btn placeholder" title="mp">𝆐𝆏</button>
+                         <button class="maestro-btn placeholder" title="p">𝆏</button>
+                         <button class="maestro-btn placeholder" title="pp">𝆏𝆏</button>
+                         <button class="maestro-btn placeholder" title="ppp">𝆏𝆏𝆏</button>
+                         <!-- Diminuendo: Double width, stretched hairpin -->
+                         <button class="maestro-btn placeholder double-width-btn flex items-center justify-center overflow-hidden" title="Diminuendo">
+                            <span class="text-3xl font-light transform scale-x-[2.5] origin-center -mt-1">&gt;</span>
+                         </button>
+                    </div>
+                </div>
+            
+                <!-- Divider -->
+                <div class="w-px h-20 bg-gray-300"></div>
+            
+                <!-- Centered SFZ -->
+                <div>
+                    <button class="maestro-btn placeholder text-sm italic font-serif" title="sfz">sfz</button>
+                </div>
             </div>
 
              <!-- 6. ARTICULATION (Placeholders) -->
