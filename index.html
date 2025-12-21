@@ -288,22 +288,36 @@
                 </div>
             </div>
 
-             <!-- 6. ARTICULATION (Placeholders) -->
-             <div id="tools-articulation" class="flex gap-3 items-center hidden">
-                <button class="maestro-btn placeholder text-xl" title="Accent">&gt;</button>
-                <button class="maestro-btn placeholder text-3xl pb-2" title="Staccato">.</button>
-                <button class="maestro-btn placeholder text-xl mt-2" title="Marcato">^</button>
-                <button class="maestro-btn placeholder text-xl" title="Percussive">x</button>
-                <div class="w-px h-8 bg-gray-300 mx-1"></div>
-                <button class="maestro-btn placeholder opacity-50" title="Ghost Note">𝅘𝅥</button>
-                <button class="maestro-btn placeholder text-2xl" title="Diamond">◇</button>
-                <button class="maestro-btn placeholder text-3xl" title="Legato">⁀</button>
-                <div class="w-px h-8 bg-gray-300 mx-1"></div>
-                <button class="maestro-btn placeholder text-sm italic font-serif" title="Trill">tr</button>
-                <button class="maestro-btn placeholder text-xl" title="Tremolo">///</button>
-                <button class="maestro-btn placeholder text-xs italic font-serif" title="Glissando">gliss</button>
-                <button class="maestro-btn placeholder text-xs italic font-serif" title="8va">8va</button>
-                <button class="maestro-btn placeholder" title="Mordent">𝆞</button>
+             <!-- 6. ARTICULATION (Updated Layout) -->
+             <div id="tools-articulation" class="flex flex-col gap-2 items-center justify-center w-full hidden">
+                <!-- Top Row -->
+                <div class="flex gap-2 items-center">
+                    <button class="maestro-btn placeholder note-grid-btn text-xl" title="Accent">&gt;</button>
+                    <button class="maestro-btn placeholder note-grid-btn text-3xl pb-2" title="Staccato">.</button>
+                    <button class="maestro-btn placeholder note-grid-btn text-xl mt-2" title="Marcato">^</button>
+                    <button class="maestro-btn placeholder note-grid-btn text-xl" title="Percussive">x</button>
+                    <button class="maestro-btn placeholder note-grid-btn opacity-50" title="Ghost Note">𝅘𝅥</button>
+                    <button class="maestro-btn placeholder note-grid-btn text-2xl" title="Diamond">◇</button>
+                    <!-- Legato -->
+                    <button class="maestro-btn placeholder double-width-btn flex flex-col items-center justify-center p-0" title="Legato">
+                        <span class="text-xs font-serif italic mt-1">leg.</span>
+                        <span class="text-3xl leading-3 mb-2 transform rotate-180">⁀</span>
+                    </button>
+                </div>
+                <!-- Bottom Row -->
+                <div class="flex gap-2 items-center">
+                    <button class="maestro-btn placeholder note-grid-btn text-sm italic font-serif" title="Trill">tr</button>
+                    <button class="maestro-btn placeholder note-grid-btn text-xl" title="Tremolo">///</button>
+                    <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="Glissando">gliss</button>
+                    <!-- Arpeggiated Roll -->
+                    <button class="maestro-btn placeholder note-grid-btn text-2xl" title="Arpeggio">𝆃</button> 
+                    <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="8va">8va</button>
+                    <!-- Sustain -->
+                    <button class="maestro-btn placeholder double-width-btn flex flex-col items-center justify-center p-0 gap-1" title="Sustain">
+                        <div class="w-8 h-3 border-b-2 border-l-2 border-r-2 border-gray-500"></div>
+                        <span class="text-xs font-serif italic">sus.</span>
+                    </button>
+                </div>
            </div>
             
             <!-- Right Aligned Pitch Indicator -->
