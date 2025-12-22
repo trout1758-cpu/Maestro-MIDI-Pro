@@ -19,11 +19,29 @@ export const NoteRenderer = {
     },
 
     drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note') {
+        const part = State.parts.find(p => p.id === State.activePartId);
+        
+        // --- BARLINE RENDERING ---
+        if (type === 'barline') {
+            const system = part.calibration[systemId];
+            if (!system) return;
+            
+            const height = Math.abs(system.bottomY - system.topY);
+            const el = document.createElement('div');
+            el.className = 'placed-barline';
+            el.style.height = (height * PDF.scale) + 'px';
+            el.style.left = (unscaledX * PDF.scale) + 'px';
+            el.style.top = (system.topY * PDF.scale) + 'px';
+            
+            PDF.overlay.appendChild(el);
+            return;
+        }
+
+        // --- NOTE/REST RENDERING ---
         let renderY = unscaledY;
         let renderSize = savedSize;
 
         if (systemId !== undefined && pitchIndex !== undefined) {
-            const part = State.parts.find(p => p.id === State.activePartId);
             const system = part.calibration[systemId]; 
             if (system) {
                 const height = Math.abs(system.bottomY - system.topY);
