@@ -196,6 +196,18 @@ body.calibration-mode #calibration-footer { display: flex; }
 }
 .ghost-note.rest.visible { display: flex; }
 
+/* GHOST BARLINE */
+.ghost-barline {
+    position: absolute;
+    width: 4px;
+    background-color: rgba(56, 189, 248, 0.6);
+    pointer-events: none;
+    z-index: 200;
+    display: none;
+}
+.ghost-barline.visible { display: block; }
+
+
 /* PLACED NOTE */
 .placed-note {
     position: absolute; 
@@ -216,6 +228,18 @@ body.calibration-mode #calibration-footer { display: flex; }
      display: flex; align-items: center; justify-content: center;
      transform: translate(-50%, -50%);
 }
+
+/* PLACED BARLINE */
+.placed-barline {
+    position: absolute;
+    width: 3px;
+    background-color: #2563eb; 
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 50;
+}
+.placed-barline:hover { background-color: #1e40af; }
+
 
 /* PITCH INDICATOR */
 #pitch-display {
