@@ -107,12 +107,12 @@ export const Input = {
                         const part = State.parts.find(p => p.id === State.activePartId);
                         part.notes.push({
                             x,
-                            y: system.topY, // Just store top, or could store 0. Logic uses systemId mostly.
+                            y: system.topY, 
                             systemId: system.id,
                             type: 'barline',
                             subtype: State.noteDuration // 'single', 'double', etc.
                         });
-                        NoteRenderer.drawNote(x, system.topY, 0, 0, system.id, 'barline');
+                        NoteRenderer.drawNote(x, system.topY, 0, 0, system.id, 'barline', State.noteDuration);
                     }
                     return;
                 }
