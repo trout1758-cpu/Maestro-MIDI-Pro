@@ -27,6 +27,19 @@ export const ExportManager = {
             sortedNotes.forEach(note => {
                 // HANDLE BARLINE (Split Measure)
                 if (note.type === 'barline') {
+                    // Logic for different barline types
+                    let barlineXML = '';
+                    if (note.subtype === 'double') {
+                         barlineXML = '<barline location="right"><bar-style>light-light</bar-style></barline>';
+                    } else if (note.subtype === 'final') {
+                         barlineXML = '<barline location="right"><bar-style>light-heavy</bar-style></barline>';
+                    } else if (note.subtype === 'repeat') {
+                         barlineXML = '<barline location="right"><bar-style>light-heavy</bar-style><repeat direction="backward"/></barline>';
+                    }
+
+                    // Insert custom barline XML if it exists, otherwise just close measure (regular barline)
+                    if (barlineXML) xml += `      ${barlineXML}\n`;
+                    
                     xml += `    </measure>\n`;
                     measureNum++;
                     xml += `    <measure number="${measureNum}">\n`;
