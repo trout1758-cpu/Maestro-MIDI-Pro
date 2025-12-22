@@ -232,13 +232,44 @@ body.calibration-mode #calibration-footer { display: flex; }
 /* PLACED BARLINE */
 .placed-barline {
     position: absolute;
-    width: 3px;
-    background-color: #2563eb; 
     pointer-events: auto;
     cursor: pointer;
     z-index: 50;
+    /* Default Single */
+    width: 3px;
+    background-color: #2563eb;
 }
-.placed-barline:hover { background-color: #1e40af; }
+.placed-barline.double {
+    width: 10px;
+    background-color: transparent;
+    border-left: 2px solid #2563eb;
+    border-right: 2px solid #2563eb;
+}
+.placed-barline.final {
+    width: 12px;
+    background-color: transparent;
+    border-left: 2px solid #2563eb;
+    border-right: 6px solid #2563eb;
+}
+.placed-barline.repeat {
+    width: 12px;
+    background-color: transparent;
+    border-left: 2px solid #2563eb;
+    border-right: 6px solid #2563eb;
+}
+.placed-barline.repeat::before, .placed-barline.repeat::after {
+    content: ''; 
+    position: absolute; 
+    left: 2px; 
+    width: 4px; 
+    height: 4px; 
+    border-radius: 50%; 
+    background: #2563eb;
+}
+.placed-barline.repeat::before { top: 35%; }
+.placed-barline.repeat::after { bottom: 35%; }
+
+.placed-barline:hover { opacity: 0.8; }
 
 
 /* PITCH INDICATOR */
