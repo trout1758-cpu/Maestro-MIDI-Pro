@@ -14,11 +14,11 @@ export const NoteRenderer = {
         if (!part) return;
 
         part.notes.forEach(note => {
-            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type);
+            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype);
         });
     },
 
-    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note') {
+    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null) {
         const part = State.parts.find(p => p.id === State.activePartId);
         
         // --- BARLINE RENDERING ---
@@ -28,7 +28,8 @@ export const NoteRenderer = {
             
             const height = Math.abs(system.bottomY - system.topY);
             const el = document.createElement('div');
-            el.className = 'placed-barline';
+            // Add specific subtype class
+            el.className = `placed-barline ${subtype || ''}`;
             el.style.height = (height * PDF.scale) + 'px';
             el.style.left = (unscaledX * PDF.scale) + 'px';
             el.style.top = (system.topY * PDF.scale) + 'px';
