@@ -207,6 +207,25 @@ body.calibration-mode #calibration-footer { display: flex; }
 }
 .ghost-barline.visible { display: block; }
 
+/* GHOST CLEF */
+.ghost-clef {
+    position: absolute;
+    border: 2px solid rgba(56, 189, 248, 0.6);
+    pointer-events: none;
+    z-index: 200;
+    display: none;
+    background-color: transparent;
+    border-radius: 4px;
+}
+.ghost-clef.c::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: -10%; right: -10%;
+    height: 2px;
+    background-color: rgba(56, 189, 248, 0.6);
+}
+.ghost-clef.visible { display: block; }
+
 
 /* PLACED NOTE */
 .placed-note {
@@ -270,6 +289,29 @@ body.calibration-mode #calibration-footer { display: flex; }
 .placed-barline.repeat::after { bottom: 35%; }
 
 .placed-barline:hover { opacity: 0.8; }
+
+
+/* PLACED CLEF */
+.placed-clef {
+    position: absolute;
+    border: 2px solid #2563eb;
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 50;
+    background-color: transparent;
+    border-radius: 4px;
+    transform: translate(-50%, -50%);
+}
+.placed-clef.c::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: -10%; right: -10%;
+    height: 2px;
+    background-color: #2563eb;
+}
+
+.placed-clef:hover { border-color: #1e40af; }
+.placed-clef.c:hover::after { background-color: #1e40af; }
 
 
 /* PITCH INDICATOR */
