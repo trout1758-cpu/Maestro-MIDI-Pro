@@ -103,12 +103,12 @@
         <!-- TOOL CONTAINER -->
         <div class="h-28 bg-gray-50 flex items-center justify-center opacity-50 relative px-6 transition-opacity duration-200" id="tool-container">
             
-            <!-- 1. MEASURE (Fixed Visuals) -->
+            <!-- 1. MEASURE (Visuals) -->
             <div id="tools-measure" class="flex gap-4 items-center w-full justify-center hidden">
                 <div class="flex gap-2">
-                    <button class="maestro-btn placeholder" title="Treble Clef">𝄞</button>
-                    <button class="maestro-btn placeholder" title="Bass Clef">𝄢</button>
-                    <button class="maestro-btn placeholder" title="Alto Clef">𝄡</button>
+                    <button class="maestro-btn tool-btn" title="Treble Clef" onclick="ToolbarView.selectTool('clef', 'treble', this)">𝄞</button>
+                    <button class="maestro-btn tool-btn" title="Bass Clef" onclick="ToolbarView.selectTool('clef', 'bass', this)">𝄢</button>
+                    <button class="maestro-btn tool-btn" title="Alto Clef (Movable C)" onclick="ToolbarView.selectTool('clef', 'c', this)">𝄡</button>
                 </div>
                 <div class="w-px h-8 bg-gray-300 mx-2"></div>
                 <div class="flex gap-2">
