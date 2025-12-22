@@ -25,7 +25,32 @@ export const ExportManager = {
             const sortedNotes = part.notes.sort((a, b) => a.x - b.x);
             
             sortedNotes.forEach(note => {
-                // HANDLE BARLINE (Split Measure)
+                // --- CLEF EXPORT ---
+                if (note.type === 'clef') {
+                    let sign = 'G';
+                    let line = '2';
+                    if (note.subtype === 'treble') {
+                        sign = 'G'; line = '2';
+                    } else if (note.subtype === 'bass') {
+                        sign = 'F'; line = '4';
+                    } else if (note.subtype === 'c') {
+                        sign = 'C';
+                        // Convert pitchIndex to MusicXML line
+                        // Index 0 = Top Line (5). Index 8 = Bottom Line (1).
+                        // Step is 2 per line. 
+                        // Line = 5 - (index / 2).
+                        // Example: Alto Clef center is Line 3 -> Index 4. 5 - 2 = 3. Correct.
+                        // Example: Tenor Clef center is Line 4 -> Index 2. 5 - 1 = 4. Correct.
+                        // If user clicks a space (odd index), we round to nearest line? 
+                        // Let's just use integer division for safety or exact calculation.
+                        // Ideally C clefs are on lines.
+                        line = Math.round(5 - (note.pitchIndex / 2));
+                    }
+                    xml += `      <attributes><clef><sign>${sign}</sign><line>${line}</line></clef></attributes>\n`;
+                    return;
+                }
+
+                // --- BARLINE (Split Measure) ---
                 if (note.type === 'barline') {
                     // Logic for different barline types
                     let barlineXML = '';
