@@ -100,6 +100,24 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
+                // BARLINE LOGIC
+                if (State.activeTool === 'barline') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const part = State.parts.find(p => p.id === State.activePartId);
+                        part.notes.push({
+                            x,
+                            y: system.topY, // Just store top, or could store 0. Logic uses systemId mostly.
+                            systemId: system.id,
+                            type: 'barline',
+                            subtype: State.noteDuration // 'single', 'double', etc.
+                        });
+                        NoteRenderer.drawNote(x, system.topY, 0, 0, system.id, 'barline');
+                    }
+                    return;
+                }
+
+                // NOTE/REST LOGIC
                 const snap = ZoningEngine.calculateSnap(y);
                 if (!snap) return; 
 
@@ -160,6 +178,30 @@ export const Input = {
             const rect = PDF.canvas.getBoundingClientRect();
             if (Utils.checkCanvasBounds(e, rect)) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
+                
+                // BARLINE GHOST LOGIC
+                if (State.activeTool === 'barline') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const height = Math.abs(system.bottomY - system.topY);
+                        this.ghostNote.className = 'ghost-barline visible';
+                        this.ghostNote.innerText = '';
+                        this.ghostNote.style.height = (height * PDF.scale) + 'px';
+                        this.ghostNote.style.width = '4px';
+                        this.ghostNote.style.top = (system.topY * PDF.scale) + 'px';
+                        this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                        this.ghostNote.style.transform = 'none'; // reset rotation/centering
+                        this.ghostNote.style.borderRadius = '0';
+                        this.ghostNote.style.border = 'none';
+                        this.ghostNote.style.backgroundColor = ''; // let CSS handle color
+                    } else {
+                        this.ghostNote.classList.remove('visible');
+                    }
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
+                // NOTE/REST GHOST LOGIC
                 const snap = ZoningEngine.calculateSnap(y);
                 
                 if (snap) {
@@ -189,6 +231,7 @@ export const Input = {
                         this.ghostNote.style.backgroundColor = '';
                         this.ghostNote.style.border = '';
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
+                        this.ghostNote.style.borderRadius = '50%';
                     }
                     
                     this.ghostNote.style.left = (x * PDF.scale) + 'px';
