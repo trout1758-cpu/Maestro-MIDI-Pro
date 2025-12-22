@@ -100,6 +100,42 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
+                // --- CLEF LOGIC ---
+                if (State.activeTool === 'clef') {
+                    if (State.noteDuration === 'c') {
+                        // C-Clef: Needs snapping
+                        const snap = ZoningEngine.calculateSnap(y);
+                        if (snap) {
+                            const part = State.parts.find(p => p.id === State.activePartId);
+                            part.notes.push({
+                                x,
+                                y: snap.y, 
+                                pitchIndex: snap.pitchIndex,
+                                systemId: snap.systemId,
+                                type: 'clef',
+                                subtype: 'c'
+                            });
+                            NoteRenderer.drawNote(x, snap.y, 0, snap.pitchIndex, snap.systemId, 'clef', 'c');
+                        }
+                    } else {
+                        // Treble/Bass: Fixed vertical pos
+                        const system = ZoningEngine.checkZone(y);
+                        if (system) {
+                            const part = State.parts.find(p => p.id === State.activePartId);
+                            // We don't need snap y for fixed clefs, just system top ref
+                            part.notes.push({
+                                x,
+                                y: system.topY, 
+                                systemId: system.id,
+                                type: 'clef',
+                                subtype: State.noteDuration // 'treble' or 'bass'
+                            });
+                            NoteRenderer.drawNote(x, system.topY, 0, 0, system.id, 'clef', State.noteDuration);
+                        }
+                    }
+                    return;
+                }
+
                 // BARLINE LOGIC
                 if (State.activeTool === 'barline') {
                     const system = ZoningEngine.checkZone(y);
@@ -110,7 +146,7 @@ export const Input = {
                             y: system.topY, 
                             systemId: system.id,
                             type: 'barline',
-                            subtype: State.noteDuration // 'single', 'double', etc.
+                            subtype: State.noteDuration 
                         });
                         NoteRenderer.drawNote(x, system.topY, 0, 0, system.id, 'barline', State.noteDuration);
                     }
@@ -142,7 +178,6 @@ export const Input = {
     },
 
     handleGlobalUp(e) {
-        // Calibration drag end logic if needed, currently implied by lack of move
         if (CalibrationController.draggingLine) {
             CalibrationController.draggingLine = null;
         }
@@ -179,6 +214,58 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
+                // --- CLEF GHOST LOGIC ---
+                if (State.activeTool === 'clef') {
+                    if (State.noteDuration === 'c') {
+                         const snap = ZoningEngine.calculateSnap(y);
+                         if (snap) {
+                             const part = State.parts.find(p => p.id === State.activePartId);
+                             const system = part.calibration[snap.systemId];
+                             const dist = Math.abs(system.bottomY - system.topY);
+                             
+                             const boxHeight = (dist * 0.9) * PDF.scale;
+                             const boxWidth = (dist * 0.6) * PDF.scale;
+                             
+                             this.ghostNote.className = 'ghost-clef c visible';
+                             this.ghostNote.innerText = '';
+                             this.ghostNote.style.width = boxWidth + 'px';
+                             this.ghostNote.style.height = boxHeight + 'px';
+                             this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                             this.ghostNote.style.top = (snap.y * PDF.scale) + 'px';
+                             this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                         } else {
+                             this.ghostNote.classList.remove('visible');
+                         }
+                    } else {
+                        // Treble/Bass fixed
+                        const system = ZoningEngine.checkZone(y);
+                        if (system) {
+                             const height = Math.abs(system.bottomY - system.topY);
+                             const boxHeight = (height * 0.9) * PDF.scale; // slightly smaller than staff
+                             const boxWidth = (height * 0.6) * PDF.scale;
+                             
+                             // Visual fixed position offsets
+                             // Treble center index 6, Bass index 2. 
+                             // Step = height/8. TopY + (index * step)
+                             const step = height / 8;
+                             const idx = State.noteDuration === 'treble' ? 6 : 2;
+                             const fixedY = system.topY + (idx * step);
+
+                             this.ghostNote.className = 'ghost-clef visible';
+                             this.ghostNote.innerText = '';
+                             this.ghostNote.style.width = boxWidth + 'px';
+                             this.ghostNote.style.height = boxHeight + 'px';
+                             this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                             this.ghostNote.style.top = (fixedY * PDF.scale) + 'px';
+                             this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                        } else {
+                             this.ghostNote.classList.remove('visible');
+                        }
+                    }
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
                 // BARLINE GHOST LOGIC
                 if (State.activeTool === 'barline') {
                     const system = ZoningEngine.checkZone(y);
@@ -190,10 +277,10 @@ export const Input = {
                         this.ghostNote.style.width = '4px';
                         this.ghostNote.style.top = (system.topY * PDF.scale) + 'px';
                         this.ghostNote.style.left = (x * PDF.scale) + 'px';
-                        this.ghostNote.style.transform = 'none'; // reset rotation/centering
+                        this.ghostNote.style.transform = 'none'; 
                         this.ghostNote.style.borderRadius = '0';
                         this.ghostNote.style.border = 'none';
-                        this.ghostNote.style.backgroundColor = ''; // let CSS handle color
+                        this.ghostNote.style.backgroundColor = ''; 
                     } else {
                         this.ghostNote.classList.remove('visible');
                     }
