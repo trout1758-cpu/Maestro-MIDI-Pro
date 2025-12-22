@@ -37,8 +37,18 @@ export const ExportManager = {
                 const stepName = stepNames[currentMidi % 12];
                 const octave = Math.floor(currentMidi / 12) - 1; 
 
+                // 1/4 (sixteenth) * 16 = 1.  4/4 (quarter) * 4 = 16 (wait, divisions are 4).
+                // Logic check: Note.duration comes in as 1, 2, 4, 8, 16 (denominator).
+                // XML <duration> is in ticks. divisions=4 means quarter note = 4 ticks.
+                // Whole (1): 16 ticks. Half (2): 8 ticks. Quarter (4): 4 ticks. Eighth (8): 2 ticks. 16th (16): 1 tick.
+                // Formula: 16 / note.duration works perfectly.
                 const durationXML = 16 / note.duration; 
-                const typeName = note.duration === 1 ? 'whole' : note.duration === 2 ? 'half' : note.duration === 4 ? 'quarter' : 'eighth';
+                
+                // Add support for 16th type name
+                const typeName = note.duration === 1 ? 'whole' : 
+                                 note.duration === 2 ? 'half' : 
+                                 note.duration === 4 ? 'quarter' : 
+                                 note.duration === 8 ? 'eighth' : '16th';
 
                 xml += `      <note>\n`;
                 
