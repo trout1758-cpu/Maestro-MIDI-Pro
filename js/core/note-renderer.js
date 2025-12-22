@@ -21,6 +21,38 @@ export const NoteRenderer = {
     drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null) {
         const part = State.parts.find(p => p.id === State.activePartId);
         
+        // --- CLEF RENDERING ---
+        if (type === 'clef') {
+            const system = part.calibration[systemId];
+            if (!system) return;
+            const height = Math.abs(system.bottomY - system.topY);
+            
+            let renderY = unscaledY;
+
+            // Recalculate fixed positions for render consistency
+            if (subtype === 'treble') {
+                const step = height / 8;
+                renderY = system.topY + (6 * step);
+            } else if (subtype === 'bass') {
+                const step = height / 8;
+                renderY = system.topY + (2 * step);
+            } 
+            // subtype 'c' uses passed unscaledY which is already snapped
+            
+            const boxHeight = (height * 0.9) * PDF.scale;
+            const boxWidth = (height * 0.6) * PDF.scale;
+
+            const el = document.createElement('div');
+            el.className = `placed-clef ${subtype}`;
+            el.style.width = boxWidth + 'px';
+            el.style.height = boxHeight + 'px';
+            el.style.left = (unscaledX * PDF.scale) + 'px';
+            el.style.top = (renderY * PDF.scale) + 'px';
+            
+            PDF.overlay.appendChild(el);
+            return;
+        }
+
         // --- BARLINE RENDERING ---
         if (type === 'barline') {
             const system = part.calibration[systemId];
