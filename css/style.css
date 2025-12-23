@@ -472,3 +472,16 @@ body.calibration-mode #calibration-footer { display: flex; }
 }
 .part-item:hover { background-color: #f8fafc; }
 .part-item.active { background-color: #eff6ff; border-left: 4px solid var(--accent-blue); }
+
+/* FLOATING ZOOM CONTROLS */
+#zoom-controls {
+    position: fixed; bottom: 24px; right: 24px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    z-index: 50;
+}
