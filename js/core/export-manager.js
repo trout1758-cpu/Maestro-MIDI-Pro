@@ -18,27 +18,25 @@ export const ExportManager = {
         State.parts.forEach((part, index) => {
             xml += `  <part id="P${index + 1}">\n`;
             
+            // Start Measure 1
             let measureNum = 1;
-            let currentClefType = part.clef; 
+            
+            // Initial Clef State
+            let currentClefType = part.clef; // 'treble' or 'bass' usually
 
             xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>0</fifths></key>\n        <time><beats>4</beats><beat-type>4</beat-type></time>\n        <clef>\n          <sign>${part.clef === 'treble' ? 'G' : 'F'}</sign>\n          <line>${part.clef === 'treble' ? '2' : '4'}</line>\n        </clef>\n      </attributes>\n`;
             
-            // Sort primarily by X (time), secondarily by Y (pitch) to ensure consistent ordering for chords
             const sortedNotes = part.notes.sort((a, b) => {
                 if (Math.abs(a.x - b.x) < 2.0) {
-                    return b.y - a.y; // Sort bottom-to-top or top-to-bottom for stability
+                    return b.y - a.y; 
                 }
                 return a.x - b.x;
             });
             
-            // Track cursor time to handle polyphony overlaps
-            // This is complex, so we will use a simpler relative-backup strategy:
-            // If we detect a "stack" with diff durations, we split voices.
-            
             for (let i = 0; i < sortedNotes.length; i++) {
                 const note = sortedNotes[i];
-                // Look back to see if we are stacking on the immediate previous note
                 const prevNote = i > 0 ? sortedNotes[i-1] : null;
+                const nextNote = i < sortedNotes.length - 1 ? sortedNotes[i+1] : null;
 
                 // --- SYMBOL EXPORT ---
                 if (note.type === 'symbol') {
@@ -79,23 +77,13 @@ export const ExportManager = {
                 let isVoice2 = false;
                 let backupDuration = 0;
 
-                // Check vs Previous Note
                 if (prevNote && (prevNote.type === 'note' || prevNote.type === 'rest') && (note.type === 'note' || note.type === 'rest')) {
-                    // Check if they are effectively at the same X position
                     if (Math.abs(note.x - prevNote.x) < 2.0) {
-                        
-                        // Check Duration Match
-                        // We compare the raw duration index (1,2,4,8...) and dot status
                         const sameDuration = (note.duration === prevNote.duration) && (!!note.isDotted === !!prevNote.isDotted);
-
                         if (sameDuration) {
-                            // Standard Chord
                             isChord = true;
                         } else {
-                            // Different Duration = Polyphony / Voice 2
                             isVoice2 = true;
-                            
-                            // Calculate backup amount based on PREVIOUS note's duration
                             let prevDur = (4 * 24) / prevNote.duration;
                             if (prevNote.isDotted) prevDur *= 1.5;
                             backupDuration = prevDur;
@@ -103,8 +91,6 @@ export const ExportManager = {
                     }
                 }
 
-                // --- WRITING THE NOTE ---
-                // Handle Backup for Voice 2
                 if (isVoice2) {
                     xml += `      <backup><duration>${backupDuration}</duration></backup>\n`;
                 }
@@ -122,7 +108,6 @@ export const ExportManager = {
                 const stepName = stepNames[currentMidi % 12];
                 const octave = Math.floor(currentMidi / 12) - 1; 
 
-                // Calc Duration
                 let durationXML = (4 * 24) / note.duration;
                 if (note.isDotted) durationXML *= 1.5;
                 
@@ -130,6 +115,49 @@ export const ExportManager = {
                                  note.duration === 2 ? 'half' : 
                                  note.duration === 4 ? 'quarter' : 
                                  note.duration === 8 ? 'eighth' : '16th';
+
+                // --- BEAMING LOGIC ---
+                // Helper to check if a note is beamable (eighth or smaller)
+                const isBeamable = (n) => n && n.type === 'note' && (n.duration === 8 || n.duration === 16);
+                
+                let beam1 = null; // 8th note beam
+                let beam2 = null; // 16th note beam
+
+                if (note.type === 'note' && !isChord && !isVoice2) { // Don't beam chords/voice2 individually if they are part of the main beam flow? 
+                    // Actually, chords usually share beaming. Voice 2 usually has its own.
+                    // For simplicity, we'll only apply beaming to the primary voice notes or non-chord notes for now.
+                    // Or simple check: if current is beamable.
+                    
+                    if (isBeamable(note)) {
+                        // Check Prev
+                        const prevIsBeamable = isBeamable(prevNote) && Math.abs(note.x - prevNote.x) > 2.0; // Ensure prev isn't chorded with us
+                        // Check Next
+                        const nextIsBeamable = isBeamable(nextNote) && Math.abs(nextNote.x - note.x) > 2.0; // Ensure next isn't chorded with us
+
+                        // Start Beam?
+                        if (!prevIsBeamable && nextIsBeamable) {
+                            beam1 = 'begin';
+                        }
+                        // End Beam?
+                        else if (prevIsBeamable && !nextIsBeamable) {
+                            beam1 = 'end';
+                        }
+                        // Continue Beam?
+                        else if (prevIsBeamable && nextIsBeamable) {
+                            beam1 = 'continue';
+                        }
+                        
+                        // 16th note beam logic (secondary beam)
+                        if (note.duration === 16) {
+                            const prevIs16 = prevIsBeamable && prevNote.duration === 16;
+                            const nextIs16 = nextIsBeamable && nextNote.duration === 16;
+                            
+                            if (!prevIs16 && nextIs16) beam2 = 'begin';
+                            else if (prevIs16 && !nextIs16) beam2 = 'end';
+                            else if (prevIs16 && nextIs16) beam2 = 'continue';
+                        }
+                    }
+                }
 
                 xml += `      <note>\n`;
                 
@@ -153,11 +181,9 @@ export const ExportManager = {
                 
                 xml += `        <duration>${durationXML}</duration>\n`;
                 
-                // Voice Tag
                 if (isVoice2) {
                     xml += `        <voice>2</voice>\n`;
                 } else {
-                    // Explicitly label voice 1 to keep things clean
                     xml += `        <voice>1</voice>\n`;
                 }
 
@@ -165,6 +191,9 @@ export const ExportManager = {
                 
                 if (note.isDotted) xml += `        <dot/>\n`;
                 if (note.accidental) xml += `        <accidental>${note.accidental}</accidental>\n`;
+
+                if (beam1) xml += `        <beam number="1">${beam1}</beam>\n`;
+                if (beam2) xml += `        <beam number="2">${beam2}</beam>\n`;
 
                 xml += `      </note>\n`;
             }
