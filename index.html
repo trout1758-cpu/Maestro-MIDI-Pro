@@ -22,10 +22,8 @@
         <div class="flex items-center">
             <button id="parts-dropdown-btn" onclick="UIManager.toggleMenu('parts-menu')" class="flex items-center gap-3 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors bg-white">
                 <div class="bg-black text-white p-1 rounded"><i data-lucide="layers" size="18"></i></div>
-                <div class="text-left leading-tight">
-                    <span class="block text-xs font-bold text-gray-500 uppercase tracking-wide">Current Part</span>
-                    <span id="current-part-label" class="block font-bold text-slate-800">No Part Selected</span>
-                </div>
+                <!-- Simplified Label: Only Part Name -->
+                <span id="current-part-label" class="block font-bold text-slate-800 text-sm">No Part Selected</span>
                 <i data-lucide="chevron-down" size="16" class="text-gray-400 ml-2"></i>
             </button>
             <div id="parts-menu" class="dropdown-menu mt-2">
@@ -36,17 +34,17 @@
             </div>
         </div>
 
-        <!-- Center: Edit Controls (Undo/Redo/Delete) -->
-        <div class="flex items-center gap-4 absolute left-1/2 transform -translate-x-1/2">
-            <button onclick="Input.undo()" class="p-2 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Undo (Ctrl+Z)">
-                <i data-lucide="rotate-ccw" size="20"></i>
+        <!-- Center: Edit Controls (Smaller: ~60% size) -->
+        <div class="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
+            <button onclick="Input.undo()" class="p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Undo (Ctrl+Z)">
+                <i data-lucide="rotate-ccw" size="14"></i>
             </button>
-            <button onclick="Input.redo()" class="p-2 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Redo (Ctrl+Y)">
-                <i data-lucide="rotate-cw" size="20"></i>
+            <button onclick="Input.redo()" class="p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Redo (Ctrl+Y)">
+                <i data-lucide="rotate-cw" size="14"></i>
             </button>
-            <!-- Delete Button (Circular, Icon Only) -->
-            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="p-2 border border-red-200 rounded-full text-red-600 hover:bg-red-50 transition-colors" title="Toggle Delete Mode">
-                <i data-lucide="trash-2" size="20"></i>
+            <!-- Delete Button (Circular, Icon Only, Small) -->
+            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="p-1.5 border border-red-200 rounded-full text-red-600 hover:bg-red-50 transition-colors w-8 h-8 flex items-center justify-center" title="Toggle Delete Mode">
+                <i data-lucide="trash-2" size="14"></i>
             </button>
         </div>
         
