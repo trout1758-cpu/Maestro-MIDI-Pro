@@ -22,7 +22,6 @@
         <div class="flex items-center">
             <button id="parts-dropdown-btn" onclick="UIManager.toggleMenu('parts-menu')" class="flex items-center gap-3 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors bg-white">
                 <div class="bg-black text-white p-1 rounded"><i data-lucide="layers" size="18"></i></div>
-                <!-- Simplified Label: Only Part Name -->
                 <span id="current-part-label" class="block font-bold text-slate-800 text-sm">No Part Selected</span>
                 <i data-lucide="chevron-down" size="16" class="text-gray-400 ml-2"></i>
             </button>
@@ -42,7 +41,6 @@
             <button onclick="Input.redo()" class="p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Redo (Ctrl+Y)">
                 <i data-lucide="rotate-cw" size="14"></i>
             </button>
-            <!-- Delete Button (Circular, Icon Only, Small) -->
             <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="p-1.5 border border-red-200 rounded-full text-red-600 hover:bg-red-50 transition-colors w-8 h-8 flex items-center justify-center" title="Toggle Delete Mode">
                 <i data-lucide="trash-2" size="14"></i>
             </button>
@@ -70,7 +68,7 @@
                 <p class="text-xs text-slate-400">Add systems and drag lines to match the staff.</p>
             </div>
         </div>
-
+        
         <div class="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-600">
             <button onclick="PDF.adjustZoom(-0.1)" class="p-1 text-slate-300 hover:text-white"><i data-lucide="minus-circle" size="16"></i></button>
             <span class="text-xs font-mono w-12 text-center text-slate-300 zoom-display">100%</span>
@@ -115,14 +113,14 @@
             
             <!-- 0. SELECT -->
             <div id="tools-select" class="flex gap-6 items-center justify-center w-full hidden">
-                <button class="maestro-btn placeholder" title="Single Select" disabled>
+                <button class="maestro-btn tool-btn" title="Single Select" onclick="ToolbarView.selectTool('select', 'single', this)">
                     <i data-lucide="mouse-pointer-2" size="24"></i>
                 </button>
-                <button class="maestro-btn placeholder relative" title="Multi-Select" disabled>
+                <button class="maestro-btn tool-btn relative" title="Multi-Select" onclick="ToolbarView.selectTool('select', 'multi', this)">
                     <i data-lucide="mouse-pointer-2" size="24" class="absolute top-3 left-3"></i>
                     <i data-lucide="mouse-pointer-2" size="24" class="absolute top-4 left-5 opacity-50 transform scale-75"></i>
                 </button>
-                <button class="maestro-btn placeholder relative" title="Measure Select" disabled>
+                <button class="maestro-btn tool-btn relative" title="Measure Select" onclick="ToolbarView.selectTool('select', 'measure', this)" disabled>
                      <div class="measure-icon-container relative w-8 h-8 flex items-center justify-center">
                         <div class="w-full h-4 border-t border-b border-gray-600 flex flex-col justify-center gap-0.5">
                             <div class="w-full h-px bg-gray-600"></div>
@@ -136,7 +134,9 @@
                 </button>
             </div>
 
-            <!-- 1. MEASURE (Visuals) -->
+            <!-- ... [Other Tool Categories remain same] ... -->
+            <!-- Note: Ensuring all other tool categories are present as before -->
+            
             <div id="tools-measure" class="flex gap-4 items-center w-full justify-center hidden">
                 <div class="flex gap-2">
                     <button class="maestro-btn tool-btn" title="Treble Clef" onclick="ToolbarView.selectTool('clef', 'treble', this)">𝄞</button>
@@ -157,7 +157,6 @@
                 </div>
             </div>
 
-            <!-- 2. SIGNATURE (Fixed Layout) -->
             <div id="tools-signature" class="flex flex-col gap-2 items-center w-full hidden">
                 <div class="flex gap-1 justify-center">
                     <button class="maestro-btn sig-btn tool-btn" title="2/2" onclick="ToolbarView.selectTool('time', '2/2', this)">2/2</button>
@@ -199,15 +198,12 @@
                 </div>
             </div>
 
-            <!-- 3. NOTES/RESTS (Fixed Layout) -->
             <div id="tools-noterest" class="flex gap-6 items-center justify-center w-full hidden">
-                <!-- Accidentals (Left) -->
                 <div class="flex gap-2">
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Sharp" onclick="ToolbarView.toggleAccidental('sharp', this)">♯</button>
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Natural" onclick="ToolbarView.toggleAccidental('natural', this)">♮</button>
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Flat" onclick="ToolbarView.toggleAccidental('flat', this)">♭</button>
                 </div>
-                <!-- Notes/Rests Grid (Center) -->
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2">
                         <button class="maestro-btn note-grid-btn tool-btn" onclick="ToolbarView.selectTool('note', 1, this)">𝅝</button>
@@ -224,43 +220,30 @@
                         <button class="maestro-btn note-grid-btn tool-btn" onclick="ToolbarView.selectTool('rest', 16, this)">𝄿</button>
                     </div>
                 </div>
-                <!-- Dot (Right) -->
                 <div>
                     <button class="maestro-btn note-grid-btn text-4xl pb-4" title="Dot" onclick="ToolbarView.toggleDot(this)">.</button>
                 </div>
             </div>
 
-            <!-- 4. RHYTHM/DURATION -->
             <div id="tools-rhythm" class="flex items-center justify-center w-full gap-16">
-                
-                <!-- Left: Tempo -->
                 <button class="maestro-btn placeholder double-width-btn" title="Tempo Marking">Tempo</button>
-
-                <!-- Center Grid -->
                 <div class="flex flex-col gap-2">
-                    <!-- Top Row -->
                     <div class="flex gap-2">
                         <button class="maestro-btn placeholder note-grid-btn" title="Fermata">𝄐</button>
                         <button class="maestro-btn placeholder note-grid-btn text-xl" title="Caesura">//</button>
                         <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="a tempo">a t.</button>
                     </div>
-                    <!-- Bottom Row -->
                     <div class="flex gap-2">
                         <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="ritardando">rit.</button>
                         <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="accelerando">acc.</button>
                         <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="poco">poco</button>
                     </div>
                 </div>
-
-                <!-- Right Stack -->
                 <div class="flex flex-col gap-2 relative">
-                    <!-- Tie Button -->
                     <button class="maestro-btn placeholder double-width-btn flex flex-col items-center justify-center p-0" title="Tie" onclick="ToolbarView.toggleTie(this)">
                         <span class="text-3xl leading-3 mt-3 transform scale-x-[4] origin-center">⁀</span>
                         <span class="text-xs font-serif italic mb-1">tie</span>
                     </button>
-                    
-                    <!-- Triplet Button (Bottom, with Dropdown) -->
                     <div class="relative group" id="tuplet-container">
                         <button id="tuplet-btn" class="maestro-btn placeholder double-width-btn flex items-center justify-between px-2" onclick="UIManager.toggleMenu('tuplet-menu')" title="Tuplet">
                             <div id="tuplet-display" class="flex flex-col items-center justify-center w-full">
@@ -269,7 +252,6 @@
                             </div>
                             <i data-lucide="chevron-down" size="14" class="text-gray-400 ml-1"></i>
                         </button>
-                        <!-- Tuplet Menu -->
                         <div id="tuplet-menu" class="tuplet-dropdown">
                             <div class="tuplet-item" onclick="UIManager.selectTuplet(2, '┌ 2 ┐', '𝅘𝅥𝅘𝅥')">Duplets (2)</div>
                             <div class="tuplet-item" onclick="UIManager.selectTuplet(3, '┌ 3 ┐', '𝅘𝅥𝅘𝅥𝅘𝅥')">Triplets (3)</div>
@@ -282,67 +264,51 @@
                 </div>
             </div>
 
-            <!-- 5. DYNAMICS (Refactored Layout & Sizes) -->
             <div id="tools-dynamics" class="flex gap-6 items-center justify-center w-full hidden">
-                <!-- Dynamics Grid -->
                 <div class="flex flex-col gap-2">
-                    <!-- Top Row: Louds & Crescendo -->
                     <div class="flex gap-2 items-center">
                          <button class="maestro-btn placeholder note-grid-btn" title="mf">𝆐𝆑</button>
                          <button class="maestro-btn placeholder note-grid-btn" title="f">𝆑</button>
                          <button class="maestro-btn placeholder note-grid-btn" title="ff">𝆑𝆑</button>
                          <button class="maestro-btn placeholder note-grid-btn" title="fff">𝆑𝆑𝆑</button>
-                         <!-- Crescendo: Double width, stretched hairpin -->
                          <button class="maestro-btn placeholder double-width-btn flex items-center justify-center overflow-hidden" title="Crescendo">
                             <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&lt;</span>
                          </button>
                     </div>
-                    <!-- Bottom Row: Softs & Diminuendo -->
                     <div class="flex gap-2 items-center">
                          <button class="maestro-btn placeholder note-grid-btn" title="mp">𝆐𝆏</button>
                          <button class="maestro-btn placeholder note-grid-btn" title="p">𝆏</button>
                          <button class="maestro-btn placeholder note-grid-btn" title="pp">𝆏𝆏</button>
                          <button class="maestro-btn placeholder note-grid-btn" title="ppp">𝆏𝆏𝆏</button>
-                         <!-- Diminuendo: Double width, stretched hairpin -->
                          <button class="maestro-btn placeholder double-width-btn flex items-center justify-center overflow-hidden" title="Diminuendo">
                             <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&gt;</span>
                          </button>
                     </div>
                 </div>
-            
-                <!-- Divider -->
                 <div class="w-px h-20 bg-gray-300"></div>
-            
-                <!-- Centered SFZ -->
                 <div>
                     <button class="maestro-btn placeholder note-grid-btn text-sm italic font-serif" title="sfz">sfz</button>
                 </div>
             </div>
 
-             <!-- 6. ARTICULATION (Updated Layout) -->
              <div id="tools-articulation" class="flex flex-col gap-2 items-center justify-center w-full hidden">
-                <!-- Top Row -->
                 <div class="flex gap-2 items-center">
                     <button class="maestro-btn placeholder note-grid-btn text-xl" title="Accent">&gt;</button>
                     <button class="maestro-btn placeholder note-grid-btn text-3xl pb-2" title="Staccato">.</button>
                     <button class="maestro-btn placeholder note-grid-btn text-xl mt-2" title="Marcato">^</button>
                     <button class="maestro-btn placeholder note-grid-btn text-xl" title="Percussive">x</button>
                     <button class="maestro-btn placeholder note-grid-btn text-2xl" title="Diamond">◇</button>
-                    <!-- Legato -->
                     <button class="maestro-btn placeholder double-width-btn flex flex-col items-center justify-center p-0" title="Legato">
                         <span class="text-xs font-serif italic mt-1">leg.</span>
                         <span class="text-3xl leading-3 mb-2 transform rotate-180 scale-x-[4] origin-center">⁀</span>
                     </button>
                 </div>
-                <!-- Bottom Row -->
                 <div class="flex gap-2 items-center">
                     <button class="maestro-btn placeholder note-grid-btn text-sm italic font-serif" title="Trill">tr</button>
                     <button class="maestro-btn placeholder note-grid-btn text-xl" title="Tremolo">///</button>
                     <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="Glissando">gliss</button>
-                    <!-- Arpeggiated Roll -->
                     <button class="maestro-btn placeholder note-grid-btn text-2xl" title="Arpeggio">𝆃</button> 
                     <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="8va">8va</button>
-                    <!-- Sustain -->
                     <button class="maestro-btn placeholder double-width-btn flex items-center justify-center" title="Sustain">
                         <div class="w-24 h-4 border-b border-l border-r border-gray-500 relative">
                             <span class="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-serif italic bg-white px-1">sus.</span>
@@ -351,7 +317,6 @@
                 </div>
            </div>
             
-            <!-- Right Aligned Pitch Indicator -->
             <div class="absolute right-6 flex items-center gap-3">
                 <div id="pitch-display" class="bg-white border border-gray-200 rounded px-3 py-1 text-2xl font-serif text-blue-600 font-bold min-w-[3rem] text-center shadow-sm">
                     -
@@ -378,6 +343,8 @@
     </div>
 
     <!-- MODALS -->
+    <!-- ... (Part Modal/Delete Modal remains the same) ... -->
+    <!-- RE-INJECTING TO ENSURE COMPLETENESS -->
     <div id="part-modal" class="modal-overlay">
         <div class="bg-white rounded-xl shadow-2xl w-96 overflow-hidden">
             <div class="bg-slate-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
