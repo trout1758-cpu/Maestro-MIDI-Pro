@@ -4,6 +4,7 @@ export const State = {
     editingPartId: null,
     isCalibrating: false,
     // TOOL STATE
-    activeTool: 'note', // 'note' or 'rest'
-    noteDuration: 4     // 4=quarter, 8=eighth, etc.
+    activeTool: 'note', // 'note', 'rest', 'barline', 'clef', 'symbol'
+    noteDuration: 4,    // 4=quarter, 8=eighth, etc. or subtypes like 'treble', 'segno'
+    isDotted: false     // Toggle state for dotted notes
 };
