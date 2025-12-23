@@ -185,11 +185,8 @@ body.calibration-mode #calibration-footer { display: flex; }
 
 .ghost-note.rest {
      background-color: transparent;
-     border: none;
+     border: 2px solid rgba(239, 68, 68, 0.6); /* Red border for rest box */
      border-radius: 0;
-     font-family: 'Noto Music';
-     color: rgba(239, 68, 68, 0.6);
-     font-size: 24px; 
      display: none;
      align-items: center; justify-content: center;
      transform: translate(-50%, -50%);
@@ -257,14 +254,12 @@ body.calibration-mode #calibration-footer { display: flex; }
 
 .placed-note.rest {
      background-color: transparent;
-     border: none;
+     border: 2px solid #ef4444; /* Solid red border */
      border-radius: 0;
-     font-family: 'Noto Music';
-     color: #ef4444;
-     font-size: 24px; 
      display: flex; align-items: center; justify-content: center;
      transform: translate(-50%, -50%);
 }
+.placed-note.rest:hover { border-color: #b91c1c; background-color: transparent; }
 
 /* DOTTED NOTE STYLES */
 .placed-note.dotted::after, .ghost-note.dotted::after {
@@ -288,6 +283,29 @@ body.calibration-mode #calibration-footer { display: flex; }
     right: -15px;
     top: 40%;
     transform: none;
+}
+
+/* ACCIDENTAL STYLES */
+.placed-note.accidental-sharp::before, .ghost-note.accidental-sharp::before,
+.placed-note.accidental-flat::before, .ghost-note.accidental-flat::before,
+.placed-note.accidental-natural::before, .ghost-note.accidental-natural::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #2563eb; /* Blue border */
+    background: transparent;
+    left: -20px; /* Position to the left */
+    top: 50%;
+    transform: translateY(-50%) rotate(15deg); /* Match rotation inverse? No, keep it aligned */
+}
+
+/* Adjust rest alignment since they don't rotate */
+.placed-note.rest.accidental-sharp::before, .ghost-note.rest.accidental-sharp::before,
+.placed-note.rest.accidental-flat::before, .ghost-note.rest.accidental-flat::before,
+.placed-note.rest.accidental-natural::before, .ghost-note.rest.accidental-natural::before {
+    display: none; 
 }
 
 
