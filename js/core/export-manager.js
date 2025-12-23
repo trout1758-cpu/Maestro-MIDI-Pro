@@ -18,22 +18,8 @@ export const ExportManager = {
         State.parts.forEach((part, index) => {
             xml += `  <part id="P${index + 1}">\n`;
             
-            let measureNum = 1;
-            
-            // Initial State Configuration
-            let currentClefType = part.clef; 
-            let currentBeats = 4;
-            let currentBeatType = 4;
-            let currentFifths = 0;
-
-            xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>${currentFifths}</fifths></key>\n        <time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time>\n        <clef>\n          <sign>${part.clef === 'treble' ? 'G' : 'F'}</sign>\n          <line>${part.clef === 'treble' ? '2' : '4'}</line>\n        </clef>\n      </attributes>\n`;
-            
-            // --- CORRECT SORTING LOGIC ---
-            // 1. Sort systems by vertical position (top to bottom) to determine reading order
-            // part.calibration is an array of systems. The index is the systemId.
-            // We create a map of systemId -> sortIndex based on topY
-            
-            // Create a safe copy of calibration to sort
+            // --- STEP 1: PREPARE AND SORT DATA ---
+            // 1. Sort systems by vertical position
             const systems = part.calibration.map((sys, idx) => ({ ...sys, originalId: idx }));
             systems.sort((a, b) => a.topY - b.topY);
             
@@ -42,37 +28,69 @@ export const ExportManager = {
                 systemOrderMap[sys.originalId] = orderIdx;
             });
 
-            // 2. Sort notes: First by System Order, then by X position
+            // 2. Sort notes
             const sortedNotes = part.notes.sort((a, b) => {
                 const sysA = systemOrderMap[a.systemId];
                 const sysB = systemOrderMap[b.systemId];
                 
-                if (sysA !== sysB) {
-                    return sysA - sysB; // Sort by system index (vertical order)
-                }
+                if (sysA !== sysB) return sysA - sysB; 
                 
-                // Within same system: Sort by X
-                // If X is very close, prioritize structural order: Barline -> Clef/Key/Time -> Notes
                 if (Math.abs(a.x - b.x) < 5.0) {
-                    // Priority map (lower = earlier)
                     const getPriority = (type) => {
                         if (type === 'barline') return 0;
                         if (type === 'clef' || type === 'key' || type === 'time') return 1;
                         if (type === 'symbol') return 2;
-                        return 3; // notes/rests
+                        return 3; 
                     };
-                    
                     const pA = getPriority(a.type);
                     const pB = getPriority(b.type);
-                    
                     if (pA !== pB) return pA - pB;
-                    
-                    // Same priority? Sort by Y (top to bottom)
                     return b.y - a.y; 
                 }
                 return a.x - b.x;
             });
+
+            // --- STEP 2: SCAN FOR INITIAL ATTRIBUTES ---
+            // Defaults
+            let currentClefType = part.clef; 
+            let currentBeats = 4;
+            let currentBeatType = 4;
+            let currentFifths = 0;
+
+            // Look ahead at the beginning of the stream to set initial measure state
+            // Stop scanning when we hit a note or barline
+            for (let i = 0; i < sortedNotes.length; i++) {
+                const n = sortedNotes[i];
+                if (n.type === 'note' || n.type === 'rest' || n.type === 'barline') break;
+                
+                if (n.type === 'time') {
+                    const [b, bt] = n.subtype.split('/');
+                    currentBeats = parseInt(b);
+                    currentBeatType = parseInt(bt);
+                }
+                if (n.type === 'key') {
+                    // (Reuse keyMap logic for pre-scan if needed, or just let loop handle it)
+                    // For simplicity, we mostly care about Time Sig for the Measure 1 header
+                    const keyMap = {
+                        'C': 0, 'A': 3, 'B': 5, 'D': 2, 'E': 4, 'F': -1, 'G': 1,
+                        'C#': 7, 'F#': 6, 'G#': 8, 'D#': 9, 'A#': 10, 'E#': 11, 'B#': 12,
+                        'Cb': -7, 'Gb': -6, 'Db': -5, 'Ab': -4, 'Eb': -3, 'Bb': -2, 'Fb': -8
+                    };
+                    if (keyMap.hasOwnProperty(n.subtype)) currentFifths = keyMap[n.subtype];
+                }
+                if (n.type === 'clef') {
+                    if (n.subtype === 'treble') currentClefType = 'treble';
+                    else if (n.subtype === 'bass') currentClefType = 'bass';
+                    else if (n.subtype === 'c') currentClefType = 'alto';
+                }
+            }
+
+            let measureNum = 1;
+
+            // Start First Measure with PRE-SCANNED state
+            xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>${currentFifths}</fifths></key>\n        <time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time>\n        <clef>\n          <sign>${currentClefType === 'treble' ? 'G' : (currentClefType === 'bass' ? 'F' : 'C')}</sign>\n          <line>${currentClefType === 'treble' ? '2' : (currentClefType === 'bass' ? '4' : '3')}</line>\n        </clef>\n      </attributes>\n`;
             
+            // --- STEP 3: MAIN PROCESSING LOOP ---
             for (let i = 0; i < sortedNotes.length; i++) {
                 const note = sortedNotes[i];
                 const prevNote = i > 0 ? sortedNotes[i-1] : null;
@@ -81,8 +99,16 @@ export const ExportManager = {
                 // --- TIME SIGNATURE EXPORT ---
                 if (note.type === 'time') {
                     const [beats, beatType] = note.subtype.split('/');
-                    currentBeats = parseInt(beats);
-                    currentBeatType = parseInt(beatType);
+                    const newBeats = parseInt(beats);
+                    const newBeatType = parseInt(beatType);
+                    
+                    // Only write if it's actually a change from what we just wrote in the header?
+                    // Or strictly write it. MusicXML allows redundant attributes.
+                    // To avoid "double" attributes at start of Measure 1, we can check:
+                    // If we are in Measure 1 and haven't written any notes yet, we might skip redundancy.
+                    // But simpler is to just write it. It updates 'current' for *future* measures.
+                    currentBeats = newBeats;
+                    currentBeatType = newBeatType;
                     
                     xml += `      <attributes><time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time></attributes>\n`;
                     continue;
@@ -96,9 +122,11 @@ export const ExportManager = {
                         'Cb': -7, 'Gb': -6, 'Db': -5, 'Ab': -4, 'Eb': -3, 'Bb': -2, 'Fb': -8
                     };
                     
+                    let newFifths = 0;
                     if (keyMap.hasOwnProperty(note.subtype)) {
-                        currentFifths = keyMap[note.subtype];
+                        newFifths = keyMap[note.subtype];
                     }
+                    currentFifths = newFifths;
                     
                     xml += `      <attributes><key><fifths>${currentFifths}</fifths></key></attributes>\n`;
                     continue;
@@ -120,6 +148,7 @@ export const ExportManager = {
                     if (note.subtype === 'treble') { sign = 'G'; line = '2'; currentClefType = 'treble'; }
                     else if (note.subtype === 'bass') { sign = 'F'; line = '4'; currentClefType = 'bass'; }
                     else if (note.subtype === 'c') { sign = 'C'; line = Math.round(5 - (note.pitchIndex / 2)); currentClefType = 'alto'; }
+                    
                     xml += `      <attributes><clef><sign>${sign}</sign><line>${line}</line></clef></attributes>\n`;
                     continue;
                 }
@@ -144,9 +173,8 @@ export const ExportManager = {
                 let isVoice2 = false;
                 let backupDuration = 0;
 
-                // Improved Chord Logic: Only chord with prev if same system AND same X
                 if (prevNote && (prevNote.type === 'note' || prevNote.type === 'rest') && (note.type === 'note' || note.type === 'rest')) {
-                    if (note.systemId === prevNote.systemId && Math.abs(note.x - prevNote.x) < 2.0) {
+                    if (Math.abs(note.x - prevNote.x) < 2.0) {
                         const sameDuration = (note.duration === prevNote.duration) && (!!note.isDotted === !!prevNote.isDotted);
                         if (sameDuration) {
                             isChord = true;
@@ -185,7 +213,6 @@ export const ExportManager = {
                                  note.duration === 8 ? 'eighth' : '16th';
 
                 // --- BEAMING LOGIC ---
-                // Helper: Note is beamable?
                 const isBeamable = (n) => n && n.type === 'note' && (n.duration === 8 || n.duration === 16);
                 
                 let beam1 = null; 
@@ -194,9 +221,8 @@ export const ExportManager = {
                 if (note.type === 'note' && !isChord && !isVoice2) { 
                     
                     if (isBeamable(note)) {
-                        // Ensure we only beam with notes in the same system
-                        const prevIsBeamable = isBeamable(prevNote) && prevNote.systemId === note.systemId && Math.abs(note.x - prevNote.x) > 2.0; 
-                        const nextIsBeamable = isBeamable(nextNote) && nextNote.systemId === note.systemId && Math.abs(nextNote.x - note.x) > 2.0; 
+                        const prevIsBeamable = isBeamable(prevNote) && Math.abs(note.x - prevNote.x) > 2.0; 
+                        const nextIsBeamable = isBeamable(nextNote) && Math.abs(nextNote.x - note.x) > 2.0; 
 
                         if (!prevIsBeamable && nextIsBeamable) {
                             beam1 = 'begin';
