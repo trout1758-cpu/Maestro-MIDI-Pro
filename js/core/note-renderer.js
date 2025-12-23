@@ -7,21 +7,107 @@ export const NoteRenderer = {
         PDF.overlay.innerHTML = ''; 
         Input.initGhostNote();
 
-        // Only render notes if there is an active part
+        // Create SVG layer for ties
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.style.position = 'absolute';
+        svg.style.top = '0';
+        svg.style.left = '0';
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.pointerEvents = 'none';
+        svg.style.zIndex = '40'; 
+        PDF.overlay.appendChild(svg);
+
         if (!State.activePartId) return;
 
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return;
 
+        // Clone and Sort for sequential logic
+        const sortedNotes = [...part.notes].sort((a, b) => {
+             // System ID order primarily
+             if (a.systemId !== b.systemId) return a.systemId - b.systemId;
+             return a.x - b.x;
+        });
+
+        // 1. Render all notes
         part.notes.forEach(note => {
-            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted, note.accidental);
+            // Check if note object is in selectedNotes array
+            const isSelected = State.selectedNotes.includes(note);
+            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted, note.accidental, isSelected);
+        });
+
+        // 2. Render ties
+        sortedNotes.forEach((note, index) => {
+            if (note.type === 'note' && note.hasTie) {
+                let nextNote = null;
+                for (let i = index + 1; i < sortedNotes.length; i++) {
+                    const candidate = sortedNotes[i];
+                    if (candidate.type === 'note') {
+                        if (candidate.pitchIndex === note.pitchIndex) {
+                            nextNote = candidate;
+                            break;
+                        }
+                    }
+                }
+                this.drawTie(svg, note, nextNote, part);
+            }
         });
     },
 
-    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null, isDotted = false, accidental = null) {
+    drawTie(svg, startNote, endNote, part) {
+        const startX = startNote.x * PDF.scale;
+        const startY = startNote.y * PDF.scale;
+        
+        let endX, endY;
+        let isDangling = false;
+
+        if (endNote && endNote.systemId === startNote.systemId) {
+            endX = endNote.x * PDF.scale;
+            endY = endNote.y * PDF.scale;
+        } else {
+            isDangling = true;
+            endX = startX + (40 * PDF.scale); 
+            endY = startY;
+        }
+
+        const isStemDown = startNote.pitchIndex <= 4; 
+        const curveDir = isStemDown ? -1 : 1; 
+
+        const noteRadius = (startNote.size || 10) * PDF.scale;
+        const gap = noteRadius * 0.8;
+        
+        const x1 = startX + gap;
+        const y1 = startY;
+        const x2 = endX - gap;
+        const y2 = endY;
+
+        const cx = (x1 + x2) / 2;
+        const cy = ((y1 + y2) / 2) + (15 * curveDir * PDF.scale); 
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
+        path.setAttribute("stroke", "#2563eb");
+        path.setAttribute("stroke-width", "2");
+        path.setAttribute("fill", "none");
+        
+        if(isDangling) {
+             path.setAttribute("stroke-dasharray", "4");
+             path.setAttribute("opacity", "0.5");
+        }
+
+        svg.appendChild(path);
+    },
+
+    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null, isDotted = false, accidental = null, isSelected = false) {
         const part = State.parts.find(p => p.id === State.activePartId);
         
-        // --- TIME SIGNATURE ---
+        const el = document.createElement('div');
+        // Add .selected class if selected
+        if (isSelected) {
+            el.classList.add('selected');
+        }
+
         if (type === 'time') {
             const system = part.calibration[systemId];
             if (!system) return;
@@ -31,8 +117,7 @@ export const NoteRenderer = {
             const boxHeight = (height * 0.8) * PDF.scale;
             const boxWidth = (boxHeight * 0.5);
 
-            const el = document.createElement('div');
-            el.className = 'placed-time';
+            el.className += ' placed-time'; // Append to existing classes
             el.style.width = boxWidth + 'px';
             el.style.height = boxHeight + 'px';
             el.style.left = (unscaledX * PDF.scale) + 'px';
@@ -42,7 +127,6 @@ export const NoteRenderer = {
             return;
         }
 
-        // --- KEY SIGNATURE ---
         if (type === 'key') {
             const system = part.calibration[systemId];
             if (!system) return;
@@ -52,8 +136,7 @@ export const NoteRenderer = {
             const ovalHeight = height * PDF.scale;
             const ovalWidth = (height * 1.2) * PDF.scale;
 
-            const el = document.createElement('div');
-            el.className = 'placed-key';
+            el.className += ' placed-key';
             el.style.width = ovalWidth + 'px';
             el.style.height = ovalHeight + 'px';
             el.style.left = (unscaledX * PDF.scale) + 'px';
@@ -63,18 +146,15 @@ export const NoteRenderer = {
             return;
         }
 
-        // --- SYMBOL RENDERING (Segno/Coda) ---
         if (type === 'symbol') {
             const system = part.calibration[systemId];
             if (!system) return;
             const height = Math.abs(system.bottomY - system.topY);
             
-            // Re-calculate fixed position to ensure consistency
             const fixedY = system.topY - (height * 0.25);
             const boxSize = (height * 0.6) * PDF.scale;
             
-            const el = document.createElement('div');
-            el.className = 'placed-symbol';
+            el.className += ' placed-symbol';
             el.innerText = subtype === 'segno' ? '𝄋' : '𝄌';
             el.style.width = boxSize + 'px';
             el.style.height = boxSize + 'px';
@@ -85,7 +165,6 @@ export const NoteRenderer = {
             return;
         }
 
-        // --- CLEF RENDERING ---
         if (type === 'clef') {
             const system = part.calibration[systemId];
             if (!system) return;
@@ -93,7 +172,6 @@ export const NoteRenderer = {
             
             let renderY = unscaledY;
 
-            // Recalculate fixed positions for render consistency
             if (subtype === 'treble') {
                 const step = height / 8;
                 renderY = system.topY + (6 * step);
@@ -105,8 +183,7 @@ export const NoteRenderer = {
             const boxHeight = (height * 0.9) * PDF.scale;
             const boxWidth = (height * 0.6) * PDF.scale;
 
-            const el = document.createElement('div');
-            el.className = `placed-clef ${subtype}`;
+            el.className += ` placed-clef ${subtype}`;
             el.style.width = boxWidth + 'px';
             el.style.height = boxHeight + 'px';
             el.style.left = (unscaledX * PDF.scale) + 'px';
@@ -116,15 +193,12 @@ export const NoteRenderer = {
             return;
         }
 
-        // --- BARLINE RENDERING ---
         if (type === 'barline') {
             const system = part.calibration[systemId];
             if (!system) return;
             
             const height = Math.abs(system.bottomY - system.topY);
-            const el = document.createElement('div');
-            // Add specific subtype class
-            el.className = `placed-barline ${subtype || ''}`;
+            el.className += ` placed-barline ${subtype || ''}`;
             el.style.height = (height * PDF.scale) + 'px';
             el.style.left = (unscaledX * PDF.scale) + 'px';
             el.style.top = (system.topY * PDF.scale) + 'px';
@@ -133,7 +207,6 @@ export const NoteRenderer = {
             return;
         }
 
-        // --- NOTE/REST RENDERING ---
         let renderY = unscaledY;
         let renderSize = savedSize;
 
@@ -148,13 +221,12 @@ export const NoteRenderer = {
         }
         if (!renderSize) renderSize = 20;
 
-        const el = document.createElement('div');
-        // Apply modifiers
         let classes = type === 'rest' ? 'placed-note rest' : 'placed-note';
         if (isDotted) classes += ' dotted';
         if (accidental) classes += ` accidental-${accidental}`;
+        if (isSelected) classes += ' selected'; // Ensure selected class is added
         
-        el.className = classes;
+        el.className += ' ' + classes; 
         
         const scaledSize = renderSize * PDF.scale;
         
@@ -164,11 +236,16 @@ export const NoteRenderer = {
         el.style.top = (renderY * PDF.scale) + 'px';
         
         if (type === 'rest') {
-             el.innerText = ''; // Clear text for box
-             el.style.border = '2px solid #ef4444'; // Red box
+             el.innerText = ''; 
+             el.style.border = '2px solid #ef4444'; 
              el.style.backgroundColor = 'transparent';
              el.style.borderRadius = '0';
-             el.style.transform = "translate(-50%, -50%)"; // No rotation
+             el.style.transform = "translate(-50%, -50%)"; 
+             
+             // Override border color if selected
+             if (isSelected) {
+                 el.style.borderColor = '#22c55e';
+             }
         } else {
              el.style.transform = "translate(-50%, -50%) rotate(-15deg)";
         }
