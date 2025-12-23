@@ -51,5 +51,20 @@ export const ToolbarView = {
         
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if(btn) btn.classList.add('active');
+    },
+
+    toggleDot(btn) {
+        State.isDotted = !State.isDotted;
+        if (State.isDotted) {
+            btn.classList.add('active');
+            btn.classList.add('text-blue-600');
+            btn.classList.add('bg-blue-50');
+            btn.classList.add('border-blue-200');
+        } else {
+            btn.classList.remove('active');
+            btn.classList.remove('text-blue-600');
+            btn.classList.remove('bg-blue-50');
+            btn.classList.remove('border-blue-200');
+        }
     }
 };
