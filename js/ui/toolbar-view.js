@@ -87,7 +87,6 @@ export const ToolbarView = {
 
     toggleAccidental(type, btn) {
         // Prevent toggling if button is effectively disabled/placeholder
-        // (Though the 'disabled' attribute in DOM should handle click prevention, strict check is safe)
         if (btn.classList.contains('placeholder')) return;
 
         if (State.activeAccidental === type) {
