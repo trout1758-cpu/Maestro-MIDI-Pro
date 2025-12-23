@@ -18,7 +18,7 @@
 
     <!-- MAIN HEADER -->
     <header id="main-header" class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 z-20 shadow-sm relative">
-        <div class="relative">
+        <div class="relative flex items-center gap-4">
             <button id="parts-dropdown-btn" onclick="UIManager.toggleMenu('parts-menu')" class="flex items-center gap-3 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors bg-white">
                 <div class="bg-black text-white p-1 rounded"><i data-lucide="layers" size="18"></i></div>
                 <div class="text-left leading-tight">
@@ -33,30 +33,24 @@
                     <i data-lucide="plus" size="16"></i> Add Part
                 </button>
             </div>
-        </div>
-        
-        <!-- Center Controls: Upload & Zoom -->
-        <div class="flex items-center gap-4">
-             <div class="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200 relative z-30">
-                 <button onclick="FileManager.triggerUpload()" class="px-3 py-1 text-sm font-semibold hover:bg-white rounded shadow-sm transition-all flex gap-2 mr-2 cursor-pointer z-50">
-                    <i data-lucide="upload" size="16"></i> Upload PDF
-                </button>
-                <input type="file" id="file-upload" accept="application/pdf" class="hidden">
-                <div class="w-px h-5 bg-gray-300 mx-2"></div>
-                <button onclick="PDF.adjustZoom(-0.1)" class="p-1 hover:text-blue-600"><i data-lucide="minus-circle" size="16"></i></button>
-                <span class="text-xs font-mono w-12 text-center zoom-display">100%</span>
-                <button onclick="PDF.adjustZoom(0.1)" class="p-1 hover:text-blue-600"><i data-lucide="plus-circle" size="16"></i></button>
-            </div>
 
-            <!-- Delete Mode Button -->
-            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="flex items-center gap-2 px-4 py-2 border border-red-200 rounded-lg text-red-600 font-bold text-sm hover:bg-red-50 transition-colors" title="Toggle Delete Mode">
-                <i data-lucide="trash-2" size="18"></i> Delete
+            <!-- Delete Mode Button (Icon Only) -->
+            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="p-2 border border-red-200 rounded-lg text-red-600 hover:bg-red-50 transition-colors" title="Toggle Delete Mode">
+                <i data-lucide="trash-2" size="20"></i>
             </button>
         </div>
         
-        <button onclick="ExportManager.exportXML()" class="bg-slate-900 text-white px-5 py-2 rounded shadow hover:bg-slate-800 font-semibold text-sm flex items-center gap-2">
-            Export XML <i data-lucide="arrow-right" size="16"></i>
-        </button>
+        <!-- Right Controls: Upload & Export -->
+        <div class="flex items-center gap-3">
+             <button onclick="FileManager.triggerUpload()" class="px-3 py-2 text-sm font-semibold hover:bg-gray-100 rounded shadow-sm border border-gray-200 transition-all flex gap-2 cursor-pointer bg-white text-slate-700">
+                <i data-lucide="upload" size="16"></i> Upload PDF
+            </button>
+            <input type="file" id="file-upload" accept="application/pdf" class="hidden">
+            
+            <button onclick="ExportManager.exportXML()" class="bg-slate-900 text-white px-5 py-2 rounded shadow hover:bg-slate-800 font-semibold text-sm flex items-center gap-2">
+                Export <i data-lucide="arrow-right" size="16"></i>
+            </button>
+        </div>
     </header>
 
     <!-- CALIBRATION HEADER -->
@@ -68,6 +62,13 @@
                 <p class="text-xs text-slate-400">Add systems and drag lines to match the staff.</p>
             </div>
         </div>
+        
+        <!-- Calibration-specific Zoom (Keep here or unify? User asked to float zoom generally. Let's float zoom for main view, keep calibration simple or use same float) -->
+        <!-- Actually, user said "For the zoom controls... put those just floating at the bottom right". This likely applies globally or at least for main view. -->
+        <!-- I will remove zoom from here too and let the global floating zoom handle it if possible, or duplicate/hide. -->
+        <!-- Let's keep a simplified header for calibration but use the floating zoom for consistency if desired, OR keep calibration zoom here. -->
+        <!-- Given "Calibration Mode" is a distinct state, I'll leave its header zoom for now to avoid breaking its specific logic unless requested. -->
+        <!-- But wait, if I move the main zoom, the user might expect zoom everywhere. Let's leave calibration header as is for safety unless asked. -->
 
         <div class="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-600">
             <button onclick="PDF.adjustZoom(-0.1)" class="p-1 text-slate-300 hover:text-white"><i data-lucide="minus-circle" size="16"></i></button>
@@ -111,7 +112,7 @@
         <!-- TOOL CONTAINER -->
         <div class="h-28 bg-gray-50 flex items-center justify-center opacity-50 relative px-6 transition-opacity duration-200" id="tool-container">
             
-            <!-- 0. SELECT (New) -->
+            <!-- 0. SELECT -->
             <div id="tools-select" class="flex gap-6 items-center justify-center w-full hidden">
                 <button class="maestro-btn placeholder" title="Single Select" disabled>
                     <i data-lucide="mouse-pointer-2" size="24"></i>
@@ -121,18 +122,14 @@
                     <i data-lucide="mouse-pointer-2" size="24" class="absolute top-4 left-5 opacity-50 transform scale-75"></i>
                 </button>
                 <button class="maestro-btn placeholder relative" title="Measure Select" disabled>
-                     <!-- Custom Measure Icon -->
                      <div class="measure-icon-container relative w-8 h-8 flex items-center justify-center">
-                        <!-- Staff Lines -->
                         <div class="w-full h-4 border-t border-b border-gray-600 flex flex-col justify-center gap-0.5">
                             <div class="w-full h-px bg-gray-600"></div>
                             <div class="w-full h-px bg-gray-600"></div>
                             <div class="w-full h-px bg-gray-600"></div>
                         </div>
-                        <!-- Bar Lines -->
                         <div class="absolute left-0 top-0 bottom-0 w-px bg-gray-800 h-6 mt-1"></div>
                         <div class="absolute right-0 top-0 bottom-0 w-px bg-gray-800 h-6 mt-1"></div>
-                        <!-- Cursor Overlay -->
                         <i data-lucide="mouse-pointer-2" size="16" class="absolute -bottom-1 -right-2 text-black fill-black"></i>
                      </div>
                 </button>
@@ -371,6 +368,13 @@
             </div>
         </div>
     </main>
+
+    <!-- FLOATING ZOOM CONTROLS -->
+    <div id="zoom-controls" class="fixed bottom-6 right-6 flex items-center bg-white rounded-lg shadow-lg border border-gray-200 p-1 z-50">
+        <button onclick="PDF.adjustZoom(-0.1)" class="p-2 hover:text-blue-600 text-gray-600"><i data-lucide="minus-circle" size="20"></i></button>
+        <span class="text-sm font-mono w-14 text-center zoom-display text-gray-700 font-bold">100%</span>
+        <button onclick="PDF.adjustZoom(0.1)" class="p-2 hover:text-blue-600 text-gray-600"><i data-lucide="plus-circle" size="20"></i></button>
+    </div>
 
     <!-- MODALS -->
     <div id="part-modal" class="modal-overlay">
