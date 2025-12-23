@@ -21,6 +21,48 @@ export const NoteRenderer = {
     drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null, isDotted = false, accidental = null) {
         const part = State.parts.find(p => p.id === State.activePartId);
         
+        // --- TIME SIGNATURE ---
+        if (type === 'time') {
+            const system = part.calibration[systemId];
+            if (!system) return;
+            const height = Math.abs(system.bottomY - system.topY);
+            const midY = system.topY + (height / 2);
+            
+            const boxHeight = (height * 0.8) * PDF.scale;
+            const boxWidth = (boxHeight * 0.5);
+
+            const el = document.createElement('div');
+            el.className = 'placed-time';
+            el.style.width = boxWidth + 'px';
+            el.style.height = boxHeight + 'px';
+            el.style.left = (unscaledX * PDF.scale) + 'px';
+            el.style.top = (midY * PDF.scale) + 'px';
+            
+            PDF.overlay.appendChild(el);
+            return;
+        }
+
+        // --- KEY SIGNATURE ---
+        if (type === 'key') {
+            const system = part.calibration[systemId];
+            if (!system) return;
+            const height = Math.abs(system.bottomY - system.topY);
+            const midY = system.topY + (height / 2);
+            
+            const ovalHeight = height * PDF.scale;
+            const ovalWidth = (height * 1.2) * PDF.scale;
+
+            const el = document.createElement('div');
+            el.className = 'placed-key';
+            el.style.width = ovalWidth + 'px';
+            el.style.height = ovalHeight + 'px';
+            el.style.left = (unscaledX * PDF.scale) + 'px';
+            el.style.top = (midY * PDF.scale) + 'px';
+            
+            PDF.overlay.appendChild(el);
+            return;
+        }
+
         // --- SYMBOL RENDERING (Segno/Coda) ---
         if (type === 'symbol') {
             const system = part.calibration[systemId];
