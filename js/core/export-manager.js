@@ -38,6 +38,35 @@ export const ExportManager = {
                 const prevNote = i > 0 ? sortedNotes[i-1] : null;
                 const nextNote = i < sortedNotes.length - 1 ? sortedNotes[i+1] : null;
 
+                // --- TIME SIGNATURE EXPORT ---
+                if (note.type === 'time') {
+                    // note.subtype is "4/4" or "3/8"
+                    const [beats, beatType] = note.subtype.split('/');
+                    xml += `      <attributes><time><beats>${beats}</beats><beat-type>${beatType}</beat-type></time></attributes>\n`;
+                    continue;
+                }
+
+                // --- KEY SIGNATURE EXPORT ---
+                if (note.type === 'key') {
+                    // Helper Map for Key Names -> Fifths
+                    // Major keys assumed.
+                    // C=0, G=1, D=2, A=3, E=4, B=5, F#=6, C#=7
+                    // F=-1, Bb=-2, Eb=-3, Ab=-4, Db=-5, Gb=-6, Cb=-7
+                    const keyMap = {
+                        'C': 0, 'A': 3, 'B': 5, 'D': 2, 'E': 4, 'F': -1, 'G': 1,
+                        'C#': 7, 'F#': 6, 'G#': 8, 'D#': 9, 'A#': 10, 'E#': 11, 'B#': 12,
+                        'Cb': -7, 'Gb': -6, 'Db': -5, 'Ab': -4, 'Eb': -3, 'Bb': -2, 'Fb': -8
+                    };
+                    
+                    let fifths = 0;
+                    if (keyMap.hasOwnProperty(note.subtype)) {
+                        fifths = keyMap[note.subtype];
+                    }
+                    
+                    xml += `      <attributes><key><fifths>${fifths}</fifths></key></attributes>\n`;
+                    continue;
+                }
+
                 // --- SYMBOL EXPORT ---
                 if (note.type === 'symbol') {
                     if (note.subtype === 'segno') {
@@ -117,37 +146,27 @@ export const ExportManager = {
                                  note.duration === 8 ? 'eighth' : '16th';
 
                 // --- BEAMING LOGIC ---
-                // Helper to check if a note is beamable (eighth or smaller)
                 const isBeamable = (n) => n && n.type === 'note' && (n.duration === 8 || n.duration === 16);
                 
-                let beam1 = null; // 8th note beam
-                let beam2 = null; // 16th note beam
+                let beam1 = null; 
+                let beam2 = null; 
 
-                if (note.type === 'note' && !isChord && !isVoice2) { // Don't beam chords/voice2 individually if they are part of the main beam flow? 
-                    // Actually, chords usually share beaming. Voice 2 usually has its own.
-                    // For simplicity, we'll only apply beaming to the primary voice notes or non-chord notes for now.
-                    // Or simple check: if current is beamable.
+                if (note.type === 'note' && !isChord && !isVoice2) { 
                     
                     if (isBeamable(note)) {
-                        // Check Prev
-                        const prevIsBeamable = isBeamable(prevNote) && Math.abs(note.x - prevNote.x) > 2.0; // Ensure prev isn't chorded with us
-                        // Check Next
-                        const nextIsBeamable = isBeamable(nextNote) && Math.abs(nextNote.x - note.x) > 2.0; // Ensure next isn't chorded with us
+                        const prevIsBeamable = isBeamable(prevNote) && Math.abs(note.x - prevNote.x) > 2.0; 
+                        const nextIsBeamable = isBeamable(nextNote) && Math.abs(nextNote.x - note.x) > 2.0; 
 
-                        // Start Beam?
                         if (!prevIsBeamable && nextIsBeamable) {
                             beam1 = 'begin';
                         }
-                        // End Beam?
                         else if (prevIsBeamable && !nextIsBeamable) {
                             beam1 = 'end';
                         }
-                        // Continue Beam?
                         else if (prevIsBeamable && nextIsBeamable) {
                             beam1 = 'continue';
                         }
                         
-                        // 16th note beam logic (secondary beam)
                         if (note.duration === 16) {
                             const prevIs16 = prevIsBeamable && prevNote.duration === 16;
                             const nextIs16 = nextIsBeamable && nextNote.duration === 16;
