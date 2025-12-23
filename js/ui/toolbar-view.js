@@ -46,20 +46,6 @@ export const ToolbarView = {
     },
 
     selectTool(tool, duration, btn) {
-        // Disable special modes when selecting a normal tool
-        State.isTieMode = false;
-        State.isDeleteMode = false;
-        
-        // Reset Visuals for special toggles
-        const tieBtn = document.querySelector('button[title="Tie"]');
-        if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        
-        const delBtn = document.getElementById('delete-mode-btn');
-        if(delBtn) {
-             delBtn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
-             delBtn.classList.add('text-red-600', 'hover:bg-red-50');
-        }
-
         State.activeTool = tool;
         State.noteDuration = duration;
         
@@ -77,72 +63,48 @@ export const ToolbarView = {
             // Disable accidentals
             accidentals.forEach(b => {
                 b.classList.add('placeholder', 'opacity-50', 'cursor-not-allowed');
-                b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200'); 
+                b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200'); // Reset visual state
                 b.disabled = true;
             });
-            State.activeAccidental = null; 
+            State.activeAccidental = null; // Reset logic state
         }
     },
 
     toggleDot(btn) {
         State.isDotted = !State.isDotted;
         if (State.isDotted) {
-            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+            btn.classList.add('active');
+            btn.classList.add('text-blue-600');
+            btn.classList.add('bg-blue-50');
+            btn.classList.add('border-blue-200');
         } else {
-            btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+            btn.classList.remove('active');
+            btn.classList.remove('text-blue-600');
+            btn.classList.remove('bg-blue-50');
+            btn.classList.remove('border-blue-200');
         }
     },
 
     toggleAccidental(type, btn) {
+        // Prevent toggling if button is effectively disabled/placeholder
+        // (Though the 'disabled' attribute in DOM should handle click prevention, strict check is safe)
         if (btn.classList.contains('placeholder')) return;
 
         if (State.activeAccidental === type) {
+            // Untoggle if clicking same
             State.activeAccidental = null;
             btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         } else {
+            // Activate new one, deactivate others
             State.activeAccidental = type;
+            
+            // Reset all accidental buttons visual state
             document.querySelectorAll('.accidental-btn').forEach(b => {
                 b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
             });
-            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        }
-    },
-
-    toggleTie(btn) {
-        // Toggle Tie Mode
-        State.isTieMode = !State.isTieMode;
-        
-        // If Tie is on, Delete must be off
-        if (State.isTieMode) {
-            State.isDeleteMode = false;
-            const delBtn = document.getElementById('delete-mode-btn');
-            if(delBtn) {
-                delBtn.classList.remove('bg-red-600', 'text-white');
-                delBtn.classList.add('text-red-600');
-            }
             
+            // Set active visual state
             btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        } else {
-            btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        }
-    },
-
-    toggleDelete(btn) {
-        State.isDeleteMode = !State.isDeleteMode;
-        
-        // If Delete is on, Tie must be off
-        if (State.isDeleteMode) {
-            State.isTieMode = false;
-            const tieBtn = document.querySelector('button[title="Tie"]');
-            if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-
-            // Visuals for active delete button (Solid Red)
-            btn.classList.remove('text-red-600', 'hover:bg-red-50');
-            btn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700');
-        } else {
-            // Visuals for inactive delete button (Outline/Text Red)
-            btn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
-            btn.classList.add('text-red-600', 'hover:bg-red-50');
         }
     }
 };
