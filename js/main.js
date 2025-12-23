@@ -11,7 +11,9 @@ import { CalibrationController } from './controllers/calibration-controller.js';
 // --- INITIALIZATION ---
 
 // 1. Initialize Icons
-lucide.createIcons();
+if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+}
 
 // 2. Initialize Core Systems
 PDF.initElements();
@@ -28,5 +30,6 @@ window.ToolbarView = ToolbarView;
 window.ModalView = ModalView;
 window.PartController = PartController;
 window.CalibrationController = CalibrationController;
+window.Input = Input; // Expose Input for undo/redo buttons
 
 console.log("Maestro Module Loaded Successfully");
