@@ -1,7 +1,6 @@
 import { State } from '../state.js';
 
 export const ToolbarView = {
-    // ... existing update/updatePitch ...
     update() {
         const label = document.getElementById('current-part-label');
         const deck = document.getElementById('control-deck');
