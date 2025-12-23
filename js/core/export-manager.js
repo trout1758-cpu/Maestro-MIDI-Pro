@@ -28,7 +28,10 @@ export const ExportManager = {
             
             const sortedNotes = part.notes.sort((a, b) => a.x - b.x);
             
-            sortedNotes.forEach(note => {
+            for (let i = 0; i < sortedNotes.length; i++) {
+                const note = sortedNotes[i];
+                const prevNote = i > 0 ? sortedNotes[i-1] : null;
+
                 // --- SYMBOL EXPORT (Segno/Coda) ---
                 if (note.type === 'symbol') {
                     if (note.subtype === 'segno') {
@@ -36,7 +39,7 @@ export const ExportManager = {
                     } else if (note.subtype === 'coda') {
                          xml += `      <direction placement="above"><direction-type><coda/></direction-type></direction>\n`;
                     }
-                    return;
+                    continue; // Continue iteration
                 }
 
                 // --- CLEF EXPORT ---
@@ -44,7 +47,6 @@ export const ExportManager = {
                     let sign = 'G';
                     let line = '2';
                     
-                    // Update current tracking state so subsequent notes use correct offset
                     if (note.subtype === 'treble') {
                         sign = 'G'; line = '2';
                         currentClefType = 'treble';
@@ -58,7 +60,7 @@ export const ExportManager = {
                     }
                     
                     xml += `      <attributes><clef><sign>${sign}</sign><line>${line}</line></clef></attributes>\n`;
-                    return;
+                    continue;
                 }
 
                 // --- BARLINE (Split Measure) ---
@@ -77,10 +79,19 @@ export const ExportManager = {
                     xml += `    </measure>\n`;
                     measureNum++;
                     xml += `    <measure number="${measureNum}">\n`;
-                    return; 
+                    continue;
                 }
 
                 // HANDLE NOTES / RESTS
+                // Check if this note is part of a chord (same X as previous note)
+                let isChord = false;
+                if (prevNote && note.type === 'note' && prevNote.type === 'note') {
+                    // Use a small tolerance for "same position" (e.g., 2.0 unscaled units)
+                    if (Math.abs(note.x - prevNote.x) < 2.0) {
+                        isChord = true;
+                    }
+                }
+
                 const refMidi = CONFIG.CLEF_OFFSETS[currentClefType] || CONFIG.CLEF_OFFSETS['treble'];
                 
                 let currentMidi = refMidi;
@@ -88,7 +99,7 @@ export const ExportManager = {
                 const direction = note.pitchIndex >= 0 ? -1 : 1;
                 const steps = Math.abs(note.pitchIndex);
 
-                for(let i=0; i<steps; i++) {
+                for(let k=0; k<steps; k++) {
                     currentMidi += direction;
                     while(!whiteKeys.includes(currentMidi % 12)) currentMidi += direction;
                 }
@@ -110,22 +121,21 @@ export const ExportManager = {
 
                 xml += `      <note>\n`;
                 
+                if (isChord) {
+                    xml += `        <chord/>\n`;
+                }
+
                 if (note.type === 'rest') {
                      xml += `        <rest/>\n`;
                 } else {
                      xml += `        <pitch>\n          <step>${stepName}</step>\n`;
                      
-                     // Accidental Logic for Pitch Alteration
-                     // IMPORTANT: This overrides key signature logic.
                      if (note.accidental) {
                          let alter = 0;
                          if (note.accidental === 'sharp') alter = 1;
                          if (note.accidental === 'flat') alter = -1;
-                         if (note.accidental === 'natural') alter = 0; // Explicit natural
+                         if (note.accidental === 'natural') alter = 0; 
                          
-                         // If natural, we generally don't need <alter> unless we are cancelling a key sig. 
-                         // But since we are "modifying appropriately regardless of key", we should explicitly state it if non-zero.
-                         // Standard MusicXML: <alter> is semitones.
                          if (alter !== 0) {
                              xml += `          <alter>${alter}</alter>\n`;
                          }
@@ -140,13 +150,12 @@ export const ExportManager = {
                     xml += `        <dot/>\n`;
                 }
 
-                // Explicit Accidental Tag (Visual)
                 if (note.accidental) {
                     xml += `        <accidental>${note.accidental}</accidental>\n`;
                 }
 
                 xml += `      </note>\n`;
-            });
+            }
 
             xml += `    </measure>\n  </part>\n`;
         });
