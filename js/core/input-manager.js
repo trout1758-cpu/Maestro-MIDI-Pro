@@ -15,6 +15,11 @@ export const Input = {
     lastX: 0, 
     lastY: 0, 
     ghostNote: null,
+    
+    // Tie Dragging State
+    isDraggingTie: false,
+    tieStartNote: null,
+    tempTiePath: null, 
 
     init() {
         this.viewport = document.getElementById('viewport');
@@ -22,8 +27,6 @@ export const Input = {
         window.addEventListener('keydown', this.handleKeyDown.bind(this));
         window.addEventListener('keyup', this.handleKeyUp.bind(this));
         
-        // Wait for PDF elements to be ready via PDF.initElements() called in main, 
-        // but we bind to the wrapper which is always there.
         const wrapper = document.getElementById('canvas-wrapper');
         wrapper.addEventListener('mousedown', this.handleCanvasDown.bind(this));
         
@@ -96,16 +99,11 @@ export const Input = {
     findSnapX(x, systemId) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
-
-        // Threshold for snapping to an existing note (e.g., 20px)
-        const SNAP_THRESHOLD = 20; // in unscaled coordinates approximately
-        const SNAP_THRESHOLD_SCALED = 20 / PDF.scale;
-
+        const SNAP_THRESHOLD = 20; 
         let closestDist = Infinity;
         let closestX = null;
 
         part.notes.forEach(note => {
-            // Only snap to notes/rests in the same system
             if (note.systemId === systemId) {
                 const dist = Math.abs(note.x - x);
                 if (dist < closestDist) {
@@ -115,12 +113,22 @@ export const Input = {
             }
         });
 
-        // Use the scaled threshold logic to be consistent with visuals
-        // If we are zoomed in, 20px screen space is less unscaled units.
         if (closestX !== null && closestDist * PDF.scale < 20) {
             return closestX;
         }
         return null;
+    },
+
+    findTargetNote(x, y) {
+        const part = State.parts.find(p => p.id === State.activePartId);
+        if (!part) return null;
+        const THRESHOLD = 20 / PDF.scale;
+        
+        return part.notes.find(n => {
+            return n.type === 'note' && 
+                   Math.abs(n.x - x) < THRESHOLD && 
+                   Math.abs(n.y - y) < THRESHOLD;
+        });
     },
 
     handleCanvasDown(e) {
@@ -135,149 +143,103 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
-                // --- TIME SIGNATURE LOGIC ---
-                if (State.activeTool === 'time') {
-                    const system = ZoningEngine.checkZone(y);
-                    if (system) {
-                        const part = State.parts.find(p => p.id === State.activePartId);
+                // --- TIE MODE LOGIC (Start Drag) ---
+                if (State.isTieMode) {
+                    const clickedNote = this.findTargetNote(x, y);
+                    if (clickedNote) {
+                        this.isDraggingTie = true;
+                        this.tieStartNote = clickedNote;
                         
-                        // Calculate middle Y of system for placement
-                        const height = Math.abs(system.bottomY - system.topY);
-                        const midY = system.topY + (height / 2);
-                        
-                        part.notes.push({
-                            x,
-                            y: midY, 
-                            systemId: system.id,
-                            type: 'time',
-                            subtype: State.noteDuration // e.g. '4/4'
-                        });
-                        NoteRenderer.drawNote(x, midY, 0, 0, system.id, 'time', State.noteDuration);
+                        const svgLayer = document.querySelector('#overlay-layer svg');
+                        if (svgLayer) {
+                            this.tempTiePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                            this.tempTiePath.setAttribute("stroke", "#2563eb");
+                            this.tempTiePath.setAttribute("stroke-width", "2");
+                            this.tempTiePath.setAttribute("fill", "none");
+                            this.tempTiePath.setAttribute("stroke-dasharray", "5,5"); 
+                            svgLayer.appendChild(this.tempTiePath);
+                        }
                     }
-                    return;
+                    return; 
                 }
 
-                // --- KEY SIGNATURE LOGIC ---
-                if (State.activeTool === 'key') {
-                    const system = ZoningEngine.checkZone(y);
-                    if (system) {
-                        const part = State.parts.find(p => p.id === State.activePartId);
-                        const height = Math.abs(system.bottomY - system.topY);
-                        const midY = system.topY + (height / 2);
-                        
-                        part.notes.push({
-                            x,
-                            y: midY,
-                            systemId: system.id,
-                            type: 'key',
-                            subtype: State.noteDuration // e.g. 'G', 'Bb'
-                        });
-                        NoteRenderer.drawNote(x, midY, 0, 0, system.id, 'key', State.noteDuration);
-                    }
-                    return;
-                }
-
-                // --- SYMBOL LOGIC (Segno/Coda) ---
+                // ... [Existing Tool Logic] ...
                 if (State.activeTool === 'symbol') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
                         const part = State.parts.find(p => p.id === State.activePartId);
-                        
-                        // SNAP TO BARLINE
                         const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === system.id);
-                        let closestDist = Infinity;
-                        let closestBar = null;
-                        
-                        barlines.forEach(bar => {
-                            const dist = Math.abs(bar.x - x);
-                            if (dist < closestDist) {
-                                closestDist = dist;
-                                closestBar = bar;
-                            }
-                        });
-                        
-                        // Valid snap threshold (20 units)
+                        let closestDist = Infinity; let closestBar = null;
+                        barlines.forEach(bar => { const dist = Math.abs(bar.x - x); if (dist < closestDist) { closestDist = dist; closestBar = bar; } });
                         if (closestBar && closestDist < 20) {
                             const height = Math.abs(system.bottomY - system.topY);
-                            // Place fixed above top line
                             const fixedY = system.topY - (height * 0.25);
-                            
-                            part.notes.push({
-                                x: closestBar.x, 
-                                y: fixedY, 
-                                systemId: system.id,
-                                type: 'symbol',
-                                subtype: State.noteDuration 
-                            });
+                            part.notes.push({ x: closestBar.x, y: fixedY, systemId: system.id, type: 'symbol', subtype: State.noteDuration });
                             NoteRenderer.drawNote(closestBar.x, fixedY, 0, 0, system.id, 'symbol', State.noteDuration);
                         }
                     }
                     return;
                 }
 
-                // --- CLEF LOGIC ---
                 if (State.activeTool === 'clef') {
                     if (State.noteDuration === 'c') {
-                        // C-Clef: Needs snapping
                         const snap = ZoningEngine.calculateSnap(y);
                         if (snap) {
                             const part = State.parts.find(p => p.id === State.activePartId);
-                            part.notes.push({
-                                x,
-                                y: snap.y, 
-                                pitchIndex: snap.pitchIndex,
-                                systemId: snap.systemId,
-                                type: 'clef',
-                                subtype: 'c'
-                            });
+                            part.notes.push({ x, y: snap.y, pitchIndex: snap.pitchIndex, systemId: snap.systemId, type: 'clef', subtype: 'c' });
                             NoteRenderer.drawNote(x, snap.y, 0, snap.pitchIndex, snap.systemId, 'clef', 'c');
                         }
                     } else {
-                        // Treble/Bass: Fixed vertical pos
                         const system = ZoningEngine.checkZone(y);
                         if (system) {
                             const part = State.parts.find(p => p.id === State.activePartId);
-                            part.notes.push({
-                                x,
-                                y: system.topY, 
-                                systemId: system.id,
-                                type: 'clef',
-                                subtype: State.noteDuration 
-                            });
+                            part.notes.push({ x, y: system.topY, systemId: system.id, type: 'clef', subtype: State.noteDuration });
                             NoteRenderer.drawNote(x, system.topY, 0, 0, system.id, 'clef', State.noteDuration);
                         }
                     }
                     return;
                 }
 
-                // BARLINE LOGIC
                 if (State.activeTool === 'barline') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
                         const part = State.parts.find(p => p.id === State.activePartId);
-                        part.notes.push({
-                            x,
-                            y: system.topY, 
-                            systemId: system.id,
-                            type: 'barline',
-                            subtype: State.noteDuration 
-                        });
+                        part.notes.push({ x, y: system.topY, systemId: system.id, type: 'barline', subtype: State.noteDuration });
                         NoteRenderer.drawNote(x, system.topY, 0, 0, system.id, 'barline', State.noteDuration);
                     }
                     return;
                 }
 
-                // NOTE/REST LOGIC
+                if (State.activeTool === 'time') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const part = State.parts.find(p => p.id === State.activePartId);
+                        const height = Math.abs(system.bottomY - system.topY);
+                        const midY = system.topY + (height / 2);
+                        part.notes.push({ x, y: midY, systemId: system.id, type: 'time', subtype: State.noteDuration });
+                        NoteRenderer.drawNote(x, midY, 0, 0, system.id, 'time', State.noteDuration);
+                    }
+                    return;
+                }
+
+                if (State.activeTool === 'key') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const part = State.parts.find(p => p.id === State.activePartId);
+                        const height = Math.abs(system.bottomY - system.topY);
+                        const midY = system.topY + (height / 2);
+                        part.notes.push({ x, y: midY, systemId: system.id, type: 'key', subtype: State.noteDuration });
+                        NoteRenderer.drawNote(x, midY, 0, 0, system.id, 'key', State.noteDuration);
+                    }
+                    return;
+                }
+
                 const snap = ZoningEngine.calculateSnap(y);
                 if (!snap) return; 
 
-                // CHORD VISUAL SNAP
-                // If Shift is held, check for existing note to snap to
                 if (this.isShift) {
                     const snappedX = this.findSnapX(x, snap.systemId);
-                    if (snappedX !== null) {
-                        x = snappedX;
-                    }
+                    if (snappedX !== null) { x = snappedX; }
                 }
 
                 const part = State.parts.find(p => p.id === State.activePartId);
@@ -285,18 +247,7 @@ export const Input = {
                 const dist = Math.abs(system.bottomY - system.topY);
                 const noteSize = dist / 4;
 
-                part.notes.push({ 
-                    x, 
-                    y: snap.y, 
-                    size: noteSize,
-                    systemId: snap.systemId,
-                    pitchIndex: snap.pitchIndex,
-                    duration: State.noteDuration, // Save Duration
-                    type: State.activeTool, // Save Type (Note vs Rest)
-                    isDotted: State.isDotted, // Save Dot State
-                    accidental: State.activeAccidental // Save Accidental State (null, 'sharp', 'flat', 'natural')
-                });
-                
+                part.notes.push({ x, y: snap.y, size: noteSize, systemId: snap.systemId, pitchIndex: snap.pitchIndex, duration: State.noteDuration, type: State.activeTool, isDotted: State.isDotted, accidental: State.activeAccidental });
                 NoteRenderer.drawNote(x, snap.y, noteSize, snap.pitchIndex, snap.systemId, State.activeTool, null, State.isDotted, State.activeAccidental);
             }
         }
@@ -306,6 +257,28 @@ export const Input = {
         if (CalibrationController.draggingLine) {
             CalibrationController.draggingLine = null;
         }
+        
+        // --- TIE MODE END DRAG ---
+        if (this.isDraggingTie) {
+            this.isDraggingTie = false;
+            if (this.tempTiePath) {
+                this.tempTiePath.remove();
+                this.tempTiePath = null;
+            }
+
+            const { x, y } = Utils.getPdfCoords(e, PDF.scale);
+            const targetNote = this.findTargetNote(x, y);
+
+            if (targetNote && this.tieStartNote) {
+                // Must be different note, same pitch
+                if (targetNote !== this.tieStartNote && targetNote.pitchIndex === this.tieStartNote.pitchIndex) {
+                    this.tieStartNote.hasTie = true; 
+                    NoteRenderer.renderAll(); 
+                }
+            }
+            this.tieStartNote = null;
+        }
+
         if (this.isDragging) {
             this.isDragging = false;
             this.viewport.classList.remove('grabbing');
@@ -324,6 +297,32 @@ export const Input = {
             return;
         }
         
+        // --- TIE DRAGGING VISUALS ---
+        if (this.isDraggingTie && this.tempTiePath && this.tieStartNote) {
+            const { x, y } = Utils.getPdfCoords(e, PDF.scale);
+            
+            let endX = x * PDF.scale;
+            let endY = y * PDF.scale;
+            
+            const target = this.findTargetNote(x, y);
+            if (target && target.pitchIndex === this.tieStartNote.pitchIndex) {
+                endX = target.x * PDF.scale;
+                endY = target.y * PDF.scale;
+            }
+
+            const startX = this.tieStartNote.x * PDF.scale;
+            const startY = this.tieStartNote.y * PDF.scale;
+            
+            const isStemDown = this.tieStartNote.pitchIndex <= 4; 
+            const curveDir = isStemDown ? -1 : 1;
+            
+            const cx = (startX + endX) / 2;
+            const cy = ((startY + endY) / 2) + (15 * curveDir * PDF.scale); 
+
+            this.tempTiePath.setAttribute("d", `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`);
+            return; 
+        }
+
         if (State.isCalibrating) {
             const rect = PDF.canvas.getBoundingClientRect();
             const isOver = Utils.checkCanvasBounds(e, rect);
@@ -335,23 +334,22 @@ export const Input = {
         }
 
         if (State.activePartId && !this.isSpace) {
+            if (State.isTieMode) {
+                if(this.ghostNote) this.ghostNote.classList.remove('visible');
+                return; 
+            }
+
             const rect = PDF.canvas.getBoundingClientRect();
             if (Utils.checkCanvasBounds(e, rect)) {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
-                // --- TIME SIG GHOST LOGIC ---
                 if (State.activeTool === 'time') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
                         const height = Math.abs(system.bottomY - system.topY);
-                        // Vertical placement: Centered on staff, effectively
                         const midY = system.topY + (height / 2);
-                        
-                        // Dimensions: 2x tall as wide. Extend to near lines.
-                        // Let's say height is ~80% of staff height
                         const boxHeight = (height * 0.8) * PDF.scale;
-                        const boxWidth = (boxHeight * 0.5); // Aspect ratio
-
+                        const boxWidth = (boxHeight * 0.5); 
                         this.ghostNote.className = 'ghost-time visible';
                         this.ghostNote.style.width = boxWidth + 'px';
                         this.ghostNote.style.height = boxHeight + 'px';
@@ -366,19 +364,13 @@ export const Input = {
                     return;
                 }
 
-                // --- KEY SIG GHOST LOGIC ---
                 if (State.activeTool === 'key') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
                         const height = Math.abs(system.bottomY - system.topY);
                         const midY = system.topY + (height / 2);
-                        
-                        // Dimensions: Oval. Tangent to top/bottom.
                         const ovalHeight = height * PDF.scale;
-                        // Width depends on complexity, but let's fix it for now or base on name
-                        // "clump of sharps/flats"
                         const ovalWidth = (height * 1.2) * PDF.scale; 
-
                         this.ghostNote.className = 'ghost-key visible';
                         this.ghostNote.style.width = ovalWidth + 'px';
                         this.ghostNote.style.height = ovalHeight + 'px';
@@ -393,33 +385,22 @@ export const Input = {
                     return;
                 }
 
-                // --- SYMBOL GHOST LOGIC ---
                 if (State.activeTool === 'symbol') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
                          const part = State.parts.find(p => p.id === State.activePartId);
                          const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === system.id);
-                         let closestDist = Infinity;
-                         let closestBar = null;
-                         
-                         barlines.forEach(bar => {
-                             const dist = Math.abs(bar.x - x);
-                             if (dist < closestDist) {
-                                 closestDist = dist;
-                                 closestBar = bar;
-                             }
-                         });
-                         
+                         let closestDist = Infinity; let closestBar = null;
+                         barlines.forEach(bar => { const dist = Math.abs(bar.x - x); if (dist < closestDist) { closestDist = dist; closestBar = bar; } });
                          if (closestBar && closestDist < 20) {
                              const height = Math.abs(system.bottomY - system.topY);
                              const fixedY = system.topY - (height * 0.25);
                              const boxSize = (height * 0.6) * PDF.scale;
-                             
                              this.ghostNote.className = 'ghost-symbol visible';
                              this.ghostNote.innerText = State.noteDuration === 'segno' ? '𝄋' : '𝄌';
                              this.ghostNote.style.width = boxSize + 'px';
                              this.ghostNote.style.height = boxSize + 'px';
-                             this.ghostNote.style.left = (closestBar.x * PDF.scale) + 'px'; // Snap ghost
+                             this.ghostNote.style.left = (closestBar.x * PDF.scale) + 'px'; 
                              this.ghostNote.style.top = (fixedY * PDF.scale) + 'px';
                              this.ghostNote.style.transform = 'translate(-50%, -50%)';
                          } else {
@@ -432,7 +413,6 @@ export const Input = {
                     return;
                 }
 
-                // --- CLEF GHOST LOGIC ---
                 if (State.activeTool === 'clef') {
                     if (State.noteDuration === 'c') {
                          const snap = ZoningEngine.calculateSnap(y);
@@ -440,10 +420,8 @@ export const Input = {
                              const part = State.parts.find(p => p.id === State.activePartId);
                              const system = part.calibration[snap.systemId];
                              const dist = Math.abs(system.bottomY - system.topY);
-                             
                              const boxHeight = (dist * 0.9) * PDF.scale;
                              const boxWidth = (dist * 0.6) * PDF.scale;
-                             
                              this.ghostNote.className = 'ghost-clef c visible';
                              this.ghostNote.innerText = '';
                              this.ghostNote.style.width = boxWidth + 'px';
@@ -460,11 +438,9 @@ export const Input = {
                              const height = Math.abs(system.bottomY - system.topY);
                              const boxHeight = (height * 0.9) * PDF.scale; 
                              const boxWidth = (height * 0.6) * PDF.scale;
-                             
                              const step = height / 8;
                              const idx = State.noteDuration === 'treble' ? 6 : 2;
                              const fixedY = system.topY + (idx * step);
-
                              this.ghostNote.className = 'ghost-clef visible';
                              this.ghostNote.innerText = '';
                              this.ghostNote.style.width = boxWidth + 'px';
@@ -480,7 +456,6 @@ export const Input = {
                     return;
                 }
 
-                // BARLINE GHOST LOGIC
                 if (State.activeTool === 'barline') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
@@ -502,29 +477,20 @@ export const Input = {
                     return;
                 }
 
-                // NOTE/REST GHOST LOGIC
                 const snap = ZoningEngine.calculateSnap(y);
-                
                 if (snap) {
-                    // CHORD VISUAL SNAP
-                    // If Shift is held, check for existing note to snap to
                     let displayX = x;
                     if (this.isShift) {
                         const snappedX = this.findSnapX(x, snap.systemId);
-                        if (snappedX !== null) {
-                            displayX = snappedX;
-                        }
+                        if (snappedX !== null) displayX = snappedX;
                     }
 
                     const part = State.parts.find(p => p.id === State.activePartId);
                     const system = part.calibration[snap.systemId];
                     const dist = Math.abs(system.bottomY - system.topY);
                     const noteHeightUnscaled = dist / 4;
-                    
                     const visualHeight = noteHeightUnscaled * PDF.scale;
                     const visualWidth = visualHeight * 1.3; 
-                    
-                    // Apply modifier classes
                     const dottedClass = State.isDotted ? ' dotted' : '';
                     const accidentalClass = State.activeAccidental ? ` accidental-${State.activeAccidental}` : '';
 
@@ -549,7 +515,6 @@ export const Input = {
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
                         this.ghostNote.style.borderRadius = '50%';
                     }
-                    
                     this.ghostNote.style.left = (displayX * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (snap.y * PDF.scale) + 'px';
                 } else {
