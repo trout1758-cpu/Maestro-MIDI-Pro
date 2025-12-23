@@ -1,6 +1,7 @@
 import { State } from '../state.js';
 
 export const ToolbarView = {
+    // ... existing update/updatePitch ...
     update() {
         const label = document.getElementById('current-part-label');
         const deck = document.getElementById('control-deck');
@@ -55,8 +56,10 @@ export const ToolbarView = {
         if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         
         const delBtn = document.getElementById('delete-mode-btn');
-        if(delBtn) delBtn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
-        if(delBtn) delBtn.classList.add('text-red-600', 'hover:bg-red-50'); // Reset to default style
+        if(delBtn) {
+             delBtn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
+             delBtn.classList.add('text-red-600', 'hover:bg-red-50');
+        }
 
         State.activeTool = tool;
         State.noteDuration = duration;
