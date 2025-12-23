@@ -21,6 +21,15 @@ export const Input = {
     tieStartNote: null,
     tempTiePath: null, 
 
+    // Selection State
+    isSelectingBox: false,
+    selectStartX: 0,
+    selectStartY: 0,
+    selectBox: null,
+    isDraggingSelection: false,
+    dragStartX: 0,
+    dragStartY: 0,
+
     // Undo/Redo Stacks
     undoStack: [],
     redoStack: [],
@@ -59,77 +68,70 @@ export const Input = {
         if (!State.activePartId) return;
         const part = State.parts.find(p => p.id === State.activePartId);
         if (part) {
-            // Deep copy notes using JSON parsing to break references
+            // Note: This logic assumes references in notes array are distinct objects.
+            // If copying, we break references, which is good for undo.
             const notesCopy = JSON.parse(JSON.stringify(part.notes));
             this.undoStack.push(notesCopy);
-            this.redoStack = []; // Clear redo stack on new action
-            
-            // Limit stack size if needed, e.g. 50
+            this.redoStack = []; 
             if (this.undoStack.length > 50) this.undoStack.shift();
-            console.log("State Saved. Undo stack size:", this.undoStack.length);
         }
     },
 
     undo() {
-        console.log("Undo called. Stack size:", this.undoStack.length);
         if (!State.activePartId || this.undoStack.length === 0) return;
         const part = State.parts.find(p => p.id === State.activePartId);
         if (part) {
-            // Save current state to redo stack before restoring old state
             const currentNotes = JSON.parse(JSON.stringify(part.notes));
             this.redoStack.push(currentNotes);
-            
-            // Pop from undo stack and restore
-            const prevNotes = this.undoStack.pop();
-            part.notes = prevNotes;
+            part.notes = this.undoStack.pop();
+            State.selectedNotes = []; // Clear selection on undo
             NoteRenderer.renderAll();
         }
     },
 
     redo() {
-        console.log("Redo called. Stack size:", this.redoStack.length);
         if (!State.activePartId || this.redoStack.length === 0) return;
         const part = State.parts.find(p => p.id === State.activePartId);
         if (part) {
-            // Save current state to undo stack before restoring newer state
             const currentNotes = JSON.parse(JSON.stringify(part.notes));
             this.undoStack.push(currentNotes);
-            
-            // Pop from redo stack and restore
-            const nextNotes = this.redoStack.pop();
-            part.notes = nextNotes;
+            part.notes = this.redoStack.pop();
+            State.selectedNotes = []; // Clear selection on redo
             NoteRenderer.renderAll();
         }
     },
 
     handleKeyDown(e) {
         if (e.key === 'Shift') this.isShift = true;
-
         if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
             e.preventDefault(); this.isSpace = true;
             if(this.viewport) this.viewport.classList.add('grab-mode');
         }
         
-        // Undo/Redo Shortcuts
-        // Check for both Ctrl+Z and Cmd+Z (MetaKey)
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
             e.preventDefault();
-            if (e.shiftKey) {
-                this.redo();
-            } else {
-                this.undo();
-            }
+            if (e.shiftKey) this.redo(); else this.undo();
         }
-        // Standard Redo (Ctrl+Y)
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { 
-             e.preventDefault();
-             this.redo();
+             e.preventDefault(); this.redo();
+        }
+        
+        // Delete Key Support
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+             if (State.selectedNotes.length > 0) {
+                 this.saveState();
+                 const part = State.parts.find(p => p.id === State.activePartId);
+                 if (part) {
+                     part.notes = part.notes.filter(n => !State.selectedNotes.includes(n));
+                     State.selectedNotes = [];
+                     NoteRenderer.renderAll();
+                 }
+             }
         }
     },
 
     handleKeyUp(e) {
         if (e.key === 'Shift') this.isShift = false;
-
         if (e.code === 'Space') {
             this.isSpace = false; this.isDragging = false;
             if(this.viewport) this.viewport.classList.remove('grab-mode', 'grabbing');
@@ -160,24 +162,15 @@ export const Input = {
     findSnapX(x, systemId) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
-        
         let closestDist = Infinity;
         let closestX = null;
-
         part.notes.forEach(note => {
             if (note.systemId === systemId) {
                 const dist = Math.abs(note.x - x);
-                if (dist < closestDist) {
-                    closestDist = dist;
-                    closestX = note.x;
-                }
+                if (dist < closestDist) { closestDist = dist; closestX = note.x; }
             }
         });
-
-        // 20px threshold visual scale
-        if (closestX !== null && closestDist * PDF.scale < 20) {
-            return closestX;
-        }
+        if (closestX !== null && closestDist * PDF.scale < 20) return closestX;
         return null;
     },
 
@@ -185,11 +178,8 @@ export const Input = {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
         const THRESHOLD = 20 / PDF.scale;
-        
         return part.notes.find(n => {
-            return n.type === 'note' && 
-                   Math.abs(n.x - x) < THRESHOLD && 
-                   Math.abs(n.y - y) < THRESHOLD;
+            return Math.abs(n.x - x) < THRESHOLD && Math.abs(n.y - y) < THRESHOLD;
         });
     },
 
@@ -204,39 +194,61 @@ export const Input = {
             const rect = PDF.canvas.getBoundingClientRect();
             if (Utils.checkCanvasBounds(e, rect)) {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
-                
-                // --- DELETE MODE LOGIC ---
-                if (State.isDeleteMode) {
-                    const part = State.parts.find(p => p.id === State.activePartId);
-                    if(!part) return;
+                const part = State.parts.find(p => p.id === State.activePartId);
 
-                    const CLICK_THRESHOLD = 20 / PDF.scale;
-                    let closestIdx = -1;
-                    let minDistance = Infinity;
-
-                    part.notes.forEach((obj, idx) => {
-                        const dist = Math.sqrt(Math.pow(obj.x - x, 2) + Math.pow(obj.y - y, 2));
-                        if (dist < CLICK_THRESHOLD && dist < minDistance) {
-                            minDistance = dist;
-                            closestIdx = idx;
-                        }
+                // --- SELECTION LOGIC ---
+                if (State.activeTool === 'select') {
+                    // Check if clicking on an EXISTING selection to drag it
+                    const clickedOnSelected = State.selectedNotes.some(n => {
+                        const THRESHOLD = 20 / PDF.scale;
+                        return Math.abs(n.x - x) < THRESHOLD && Math.abs(n.y - y) < THRESHOLD;
                     });
 
-                    if (closestIdx !== -1) {
-                        this.saveState(); // Save before delete
-                        part.notes.splice(closestIdx, 1);
+                    if (clickedOnSelected) {
+                        // Start Moving Selection
+                        this.isDraggingSelection = true;
+                        this.dragStartX = x;
+                        this.dragStartY = y;
+                        this.saveState(); // Save before move
+                        return; 
+                    }
+
+                    // Not dragging existing -> New Selection
+                    if (State.selectionMode === 'multi') {
+                         this.isSelectingBox = true;
+                         this.selectStartX = x;
+                         this.selectStartY = y;
+                         this.selectBox = document.createElement('div');
+                         this.selectBox.className = 'selection-box';
+                         document.getElementById('overlay-layer').appendChild(this.selectBox);
+                         // Deselect old unless Shift? "Starting a new click/drag should deselect all previously selected"
+                         State.selectedNotes = [];
+                         NoteRenderer.renderAll();
+                    } else if (State.selectionMode === 'single') {
+                         const target = this.findTargetNote(x, y);
+                         State.selectedNotes = target ? [target] : [];
+                         NoteRenderer.renderAll();
+                    }
+                    return;
+                }
+
+                // --- DELETE MODE LOGIC ---
+                if (State.isDeleteMode) {
+                    const target = this.findTargetNote(x, y);
+                    if (target) {
+                        this.saveState();
+                        part.notes = part.notes.filter(n => n !== target);
                         NoteRenderer.renderAll();
                     }
                     return;
                 }
 
-                // --- TIE MODE LOGIC (Start Drag) ---
+                // --- TIE MODE LOGIC ---
                 if (State.isTieMode) {
                     const clickedNote = this.findTargetNote(x, y);
-                    if (clickedNote) {
+                    if (clickedNote && clickedNote.type === 'note') {
                         this.isDraggingTie = true;
                         this.tieStartNote = clickedNote;
-                        
                         const svgLayer = document.querySelector('#overlay-layer svg');
                         if (svgLayer) {
                             this.tempTiePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -250,25 +262,18 @@ export const Input = {
                     return; 
                 }
 
-                // For all placement actions below, we must save state first
+                // --- NORMAL PLACEMENT LOGIC ---
                 const zoning = ZoningEngine.checkZone(y);
-                
-                // --- PLACEMENT LOGIC ---
-                // We'll wrap the "saveState" call so it happens only if we actually place something.
-                
-                let placed = false;
-
-                // Helper function to handle placement
                 const placeItem = (item) => {
                     this.saveState();
-                    const part = State.parts.find(p => p.id === State.activePartId);
                     part.notes.push(item);
                     NoteRenderer.drawNote(item.x, item.y, item.size, item.pitchIndex, item.systemId, item.type, item.subtype, item.isDotted, item.accidental);
-                    placed = true;
                 };
 
                 if (State.activeTool === 'symbol' && zoning) {
-                    const part = State.parts.find(p => p.id === State.activePartId);
+                    // Symbol logic from before
+                    // ... (rest of placement logic essentially same as before, simplified for brevity in reasoning but full in implementation)
+                    // Copying robust placement logic to ensure full file correctness
                     const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
                     let closestDist = Infinity; let closestBar = null;
                     barlines.forEach(bar => { const dist = Math.abs(bar.x - x); if (dist < closestDist) { closestDist = dist; closestBar = bar; } });
@@ -279,14 +284,12 @@ export const Input = {
                         return;
                     }
                 }
-
+                
                 if (State.activeTool === 'clef') {
                     if (State.noteDuration === 'c') {
                         const snap = ZoningEngine.calculateSnap(y);
-                        if (snap) {
-                            placeItem({ x, y: snap.y, pitchIndex: snap.pitchIndex, systemId: snap.systemId, type: 'clef', subtype: 'c' });
-                            return;
-                        }
+                        if(snap) placeItem({ x, y: snap.y, pitchIndex: snap.pitchIndex, systemId: snap.systemId, type: 'clef', subtype: 'c' });
+                        return;
                     } else if (zoning) {
                         placeItem({ x, y: zoning.topY, systemId: zoning.id, type: 'clef', subtype: State.noteDuration });
                         return;
@@ -297,7 +300,7 @@ export const Input = {
                     placeItem({ x, y: zoning.topY, systemId: zoning.id, type: 'barline', subtype: State.noteDuration });
                     return;
                 }
-
+                
                 if (State.activeTool === 'time' && zoning) {
                     const height = Math.abs(zoning.bottomY - zoning.topY);
                     const midY = zoning.topY + (height / 2);
@@ -312,18 +315,15 @@ export const Input = {
                     return;
                 }
 
-                // Notes / Rests
                 const snap = ZoningEngine.calculateSnap(y);
                 if (snap) {
                     if (this.isShift) {
                         const snappedX = this.findSnapX(x, snap.systemId);
-                        if (snappedX !== null) { x = snappedX; }
+                        if (snappedX !== null) x = snappedX;
                     }
-                    const part = State.parts.find(p => p.id === State.activePartId);
                     const system = part.calibration[snap.systemId];
                     const dist = Math.abs(system.bottomY - system.topY);
                     const noteSize = dist / 4;
-
                     placeItem({ 
                         x, y: snap.y, size: noteSize, systemId: snap.systemId, pitchIndex: snap.pitchIndex, 
                         duration: State.noteDuration, type: State.activeTool, isDotted: State.isDotted, accidental: State.activeAccidental 
@@ -334,24 +334,55 @@ export const Input = {
     },
 
     handleGlobalUp(e) {
+        // --- SELECTION BOX END ---
+        if (this.isSelectingBox) {
+            this.isSelectingBox = false;
+            const box = this.selectBox;
+            if (box) {
+                // Calculate bounds relative to unscaled PDF coords
+                const { x, y } = Utils.getPdfCoords(e, PDF.scale);
+                const startX = this.selectStartX;
+                const startY = this.selectStartY;
+                
+                const minX = Math.min(startX, x);
+                const maxX = Math.max(startX, x);
+                const minY = Math.min(startY, y);
+                const maxY = Math.max(startY, y);
+                
+                const part = State.parts.find(p => p.id === State.activePartId);
+                if (part) {
+                    // Select all notes within bounds
+                    State.selectedNotes = part.notes.filter(n => {
+                        return n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY;
+                    });
+                }
+                
+                box.remove();
+                this.selectBox = null;
+                NoteRenderer.renderAll();
+            }
+        }
+        
+        // --- MOVE SELECTION END ---
+        if (this.isDraggingSelection) {
+            this.isDraggingSelection = false;
+        }
+
         if (CalibrationController.draggingLine) {
             CalibrationController.draggingLine = null;
         }
         
-        // --- TIE MODE END DRAG ---
         if (this.isDraggingTie) {
             this.isDraggingTie = false;
             if (this.tempTiePath) {
                 this.tempTiePath.remove();
                 this.tempTiePath = null;
             }
-
             const { x, y } = Utils.getPdfCoords(e, PDF.scale);
             const targetNote = this.findTargetNote(x, y);
-
             if (targetNote && this.tieStartNote) {
                 if (targetNote !== this.tieStartNote && targetNote.pitchIndex === this.tieStartNote.pitchIndex) {
-                    this.saveState(); // Save before tie
+                    this.saveState(); 
                     this.tieStartNote.hasTie = true; 
                     NoteRenderer.renderAll(); 
                 }
@@ -366,6 +397,44 @@ export const Input = {
     },
 
     handleGlobalMove(e) {
+        const { x, y } = Utils.getPdfCoords(e, PDF.scale);
+
+        // --- SELECTION BOX DRAG ---
+        if (this.isSelectingBox && this.selectBox) {
+            const startX = this.selectStartX * PDF.scale;
+            const startY = this.selectStartY * PDF.scale;
+            const currX = x * PDF.scale;
+            const currY = y * PDF.scale;
+            
+            const w = Math.abs(currX - startX);
+            const h = Math.abs(currY - startY);
+            const l = Math.min(currX, startX);
+            const t = Math.min(currY, startY);
+            
+            this.selectBox.style.width = w + 'px';
+            this.selectBox.style.height = h + 'px';
+            this.selectBox.style.left = l + 'px';
+            this.selectBox.style.top = t + 'px';
+            return;
+        }
+        
+        // --- MOVE SELECTION DRAG ---
+        if (this.isDraggingSelection && State.selectedNotes.length > 0) {
+             const dx = x - this.dragStartX;
+             const dy = y - this.dragStartY;
+             
+             // Update all selected notes positions
+             State.selectedNotes.forEach(n => {
+                 n.x += dx;
+                 n.y += dy;
+             });
+             
+             this.dragStartX = x;
+             this.dragStartY = y;
+             NoteRenderer.renderAll(); // Live update
+             return;
+        }
+
         if (this.isDragging) {
             const dx = e.clientX - this.lastX;
             const dy = e.clientY - this.lastY;
@@ -379,28 +448,21 @@ export const Input = {
             return;
         }
         
-        // --- TIE DRAGGING VISUALS ---
+        // --- TIE DRAGGING ---
         if (this.isDraggingTie && this.tempTiePath && this.tieStartNote) {
-            const { x, y } = Utils.getPdfCoords(e, PDF.scale);
-            
             let endX = x * PDF.scale;
             let endY = y * PDF.scale;
-            
             const target = this.findTargetNote(x, y);
             if (target && target.pitchIndex === this.tieStartNote.pitchIndex) {
                 endX = target.x * PDF.scale;
                 endY = target.y * PDF.scale;
             }
-
             const startX = this.tieStartNote.x * PDF.scale;
             const startY = this.tieStartNote.y * PDF.scale;
-            
             const isStemDown = this.tieStartNote.pitchIndex <= 4; 
             const curveDir = isStemDown ? -1 : 1;
-            
             const cx = (startX + endX) / 2;
             const cy = ((startY + endY) / 2) + (15 * curveDir * PDF.scale); 
-
             this.tempTiePath.setAttribute("d", `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`);
             return; 
         }
@@ -409,25 +471,29 @@ export const Input = {
             const rect = PDF.canvas.getBoundingClientRect();
             const isOver = Utils.checkCanvasBounds(e, rect);
             if (isOver || CalibrationController.draggingLine) {
-                const { y } = Utils.getPdfCoords(e, PDF.scale);
                 CalibrationController.handleMove(y);
             }
             return;
         }
 
         if (State.activePartId && !this.isSpace) {
-            if (State.isTieMode || State.isDeleteMode) {
+            // Hide ghost if in select/tie/delete mode
+            if (State.isTieMode || State.isDeleteMode || State.activeTool === 'select') {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 return; 
             }
-
+            
+            // ... (Standard Ghost Logic from before, assumed maintained) ...
+            // Simplified here to ensure ghost follows:
             const rect = PDF.canvas.getBoundingClientRect();
             if (Utils.checkCanvasBounds(e, rect)) {
-                let { x, y } = Utils.getPdfCoords(e, PDF.scale);
+                // Since I cannot paste partial code without risking context loss, 
+                // I will assume the previous implementation's ghost logic block is here.
+                // For brevity in this specific response block, I'll invoke the logic via "call" if this were a real system,
+                // but here I must provide the full file.
+                // RE-INJECTING FULL GHOST LOGIC for robustness:
                 
-                // ... [Repeated Ghost Logic for brevity, but essentially standard checks] ...
-                // Re-implementing the standard ghost checks to ensure they appear
-                
+                // [PASTE PREVIOUS GHOST LOGIC START]
                 if (State.activeTool === 'time') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
@@ -445,7 +511,7 @@ export const Input = {
                     } else { this.ghostNote.classList.remove('visible'); }
                     ToolbarView.updatePitch("-"); return;
                 }
-
+                // ... (Key, Symbol, Clef, Barline, Note/Rest logic identical to previous turn) ...
                 if (State.activeTool === 'key') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
@@ -463,7 +529,11 @@ export const Input = {
                     } else { this.ghostNote.classList.remove('visible'); }
                     ToolbarView.updatePitch("-"); return;
                 }
-
+                
+                // (Skipping re-writing every single block to save space, assuming they are preserved if I don't modify them. 
+                // BUT wait, in "File Generation" I must provide COMPLETE file. 
+                // Okay, I will include them to be safe.)
+                
                 if (State.activeTool === 'symbol') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
@@ -587,6 +657,7 @@ export const Input = {
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                 }
+                // [PASTE PREVIOUS GHOST LOGIC END]
             } else {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 ToolbarView.updatePitch("-");
