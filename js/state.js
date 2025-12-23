@@ -9,5 +9,11 @@ export const State = {
     isDotted: false,    // Toggle state for dotted notes
     activeAccidental: null, // null, 'sharp', 'flat', 'natural'
     isTieMode: false,   // Toggle state for Tie tool
-    isDeleteMode: false // Toggle state for Delete tool
+    isDeleteMode: false, // Toggle state for Delete tool
+    
+    // UNDO/REDO
+    // We will store snapshots of the 'notes' array for the active part
+    // A more complex app would use command pattern, but snapshots work for this scale.
+    // However, since 'parts' is the source of truth, we might need to handle it carefully.
+    // For now, let's assume InputManager handles the logic using part.notes directly.
 };
