@@ -46,6 +46,13 @@ export const ToolbarView = {
     },
 
     selectTool(tool, duration, btn) {
+        // If clicking a normal tool, disable tie mode to avoid confusion
+        if (tool !== 'note' && tool !== 'rest') {
+             State.isTieMode = false;
+             const tieBtn = document.querySelector('button[title="Tie"]');
+             if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+        }
+
         State.activeTool = tool;
         State.noteDuration = duration;
         
@@ -63,47 +70,43 @@ export const ToolbarView = {
             // Disable accidentals
             accidentals.forEach(b => {
                 b.classList.add('placeholder', 'opacity-50', 'cursor-not-allowed');
-                b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200'); // Reset visual state
+                b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200'); 
                 b.disabled = true;
             });
-            State.activeAccidental = null; // Reset logic state
+            State.activeAccidental = null; 
         }
     },
 
     toggleDot(btn) {
         State.isDotted = !State.isDotted;
         if (State.isDotted) {
-            btn.classList.add('active');
-            btn.classList.add('text-blue-600');
-            btn.classList.add('bg-blue-50');
-            btn.classList.add('border-blue-200');
+            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         } else {
-            btn.classList.remove('active');
-            btn.classList.remove('text-blue-600');
-            btn.classList.remove('bg-blue-50');
-            btn.classList.remove('border-blue-200');
+            btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         }
     },
 
     toggleAccidental(type, btn) {
-        // Prevent toggling if button is effectively disabled/placeholder
         if (btn.classList.contains('placeholder')) return;
 
         if (State.activeAccidental === type) {
-            // Untoggle if clicking same
             State.activeAccidental = null;
             btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         } else {
-            // Activate new one, deactivate others
             State.activeAccidental = type;
-            
-            // Reset all accidental buttons visual state
             document.querySelectorAll('.accidental-btn').forEach(b => {
                 b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
             });
-            
-            // Set active visual state
             btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+        }
+    },
+
+    toggleTie(btn) {
+        State.isTieMode = !State.isTieMode;
+        if (State.isTieMode) {
+            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+        } else {
+            btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         }
     }
 };
