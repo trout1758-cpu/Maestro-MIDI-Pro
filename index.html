@@ -127,42 +127,42 @@
             <!-- 2. SIGNATURE (Fixed Layout) -->
             <div id="tools-signature" class="flex flex-col gap-2 items-center w-full hidden">
                 <div class="flex gap-1 justify-center">
-                    <button class="maestro-btn sig-btn placeholder" title="2/2">2/2</button>
-                    <button class="maestro-btn sig-btn placeholder" title="3/2">3/2</button>
-                    <button class="maestro-btn sig-btn placeholder" title="4/2">4/2</button>
-                    <button class="maestro-btn sig-btn placeholder" title="2/4">2/4</button>
-                    <button class="maestro-btn sig-btn placeholder" title="3/4">3/4</button>
-                    <button class="maestro-btn sig-btn placeholder" title="4/4">4/4</button>
-                    <button class="maestro-btn sig-btn placeholder" title="5/4">5/4</button>
-                    <button class="maestro-btn sig-btn placeholder" title="3/8">3/8</button>
-                    <button class="maestro-btn sig-btn placeholder" title="6/8">6/8</button>
-                    <button class="maestro-btn sig-btn placeholder" title="9/8">9/8</button>
-                    <button class="maestro-btn sig-btn placeholder" title="12/8">12/8</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="2/2" onclick="ToolbarView.selectTool('time', '2/2', this)">2/2</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="3/2" onclick="ToolbarView.selectTool('time', '3/2', this)">3/2</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="4/2" onclick="ToolbarView.selectTool('time', '4/2', this)">4/2</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="2/4" onclick="ToolbarView.selectTool('time', '2/4', this)">2/4</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="3/4" onclick="ToolbarView.selectTool('time', '3/4', this)">3/4</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="4/4" onclick="ToolbarView.selectTool('time', '4/4', this)">4/4</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="5/4" onclick="ToolbarView.selectTool('time', '5/4', this)">5/4</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="3/8" onclick="ToolbarView.selectTool('time', '3/8', this)">3/8</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="6/8" onclick="ToolbarView.selectTool('time', '6/8', this)">6/8</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="9/8" onclick="ToolbarView.selectTool('time', '9/8', this)">9/8</button>
+                    <button class="maestro-btn sig-btn tool-btn" title="12/8" onclick="ToolbarView.selectTool('time', '12/8', this)">12/8</button>
                 </div>
                 <div class="flex gap-1 justify-center">
-                    <button class="maestro-btn key-btn placeholder bg-red-50 text-red-700 border-red-200">A♯</button>
-                    <button class="maestro-btn key-btn placeholder bg-red-50 text-red-700 border-red-200">B♯</button>
-                    <button class="maestro-btn key-btn placeholder bg-red-50 text-red-700 border-red-200">C♯</button>
-                    <button class="maestro-btn key-btn placeholder bg-red-50 text-red-700 border-red-200">D♯</button>
-                    <button class="maestro-btn key-btn placeholder bg-red-50 text-red-700 border-red-200">E♯</button>
-                    <button class="maestro-btn key-btn placeholder bg-red-50 text-red-700 border-red-200">F♯</button>
-                    <button class="maestro-btn key-btn placeholder bg-red-50 text-red-700 border-red-200">G♯</button>
+                    <button class="maestro-btn key-btn bg-red-50 text-red-700 border-red-200 tool-btn" onclick="ToolbarView.selectTool('key', 'A#', this)">A♯</button>
+                    <button class="maestro-btn key-btn bg-red-50 text-red-700 border-red-200 tool-btn" onclick="ToolbarView.selectTool('key', 'B#', this)">B♯</button>
+                    <button class="maestro-btn key-btn bg-red-50 text-red-700 border-red-200 tool-btn" onclick="ToolbarView.selectTool('key', 'C#', this)">C♯</button>
+                    <button class="maestro-btn key-btn bg-red-50 text-red-700 border-red-200 tool-btn" onclick="ToolbarView.selectTool('key', 'D#', this)">D♯</button>
+                    <button class="maestro-btn key-btn bg-red-50 text-red-700 border-red-200 tool-btn" onclick="ToolbarView.selectTool('key', 'E#', this)">E♯</button>
+                    <button class="maestro-btn key-btn bg-red-50 text-red-700 border-red-200 tool-btn" onclick="ToolbarView.selectTool('key', 'F#', this)">F♯</button>
+                    <button class="maestro-btn key-btn bg-red-50 text-red-700 border-red-200 tool-btn" onclick="ToolbarView.selectTool('key', 'G#', this)">G♯</button>
                     <div class="w-px h-8 bg-gray-300 mx-1"></div>
-                    <button class="maestro-btn key-btn placeholder">A</button>
-                    <button class="maestro-btn key-btn placeholder">B</button>
-                    <button class="maestro-btn key-btn placeholder">C</button>
-                    <button class="maestro-btn key-btn placeholder">D</button>
-                    <button class="maestro-btn key-btn placeholder">E</button>
-                    <button class="maestro-btn key-btn placeholder">F</button>
-                    <button class="maestro-btn key-btn placeholder">G</button>
+                    <button class="maestro-btn key-btn tool-btn" onclick="ToolbarView.selectTool('key', 'A', this)">A</button>
+                    <button class="maestro-btn key-btn tool-btn" onclick="ToolbarView.selectTool('key', 'B', this)">B</button>
+                    <button class="maestro-btn key-btn tool-btn" onclick="ToolbarView.selectTool('key', 'C', this)">C</button>
+                    <button class="maestro-btn key-btn tool-btn" onclick="ToolbarView.selectTool('key', 'D', this)">D</button>
+                    <button class="maestro-btn key-btn tool-btn" onclick="ToolbarView.selectTool('key', 'E', this)">E</button>
+                    <button class="maestro-btn key-btn tool-btn" onclick="ToolbarView.selectTool('key', 'F', this)">F</button>
+                    <button class="maestro-btn key-btn tool-btn" onclick="ToolbarView.selectTool('key', 'G', this)">G</button>
                     <div class="w-px h-8 bg-gray-300 mx-1"></div>
-                    <button class="maestro-btn key-btn placeholder bg-blue-50 text-blue-700 border-blue-200">A♭</button>
-                    <button class="maestro-btn key-btn placeholder bg-blue-50 text-blue-700 border-blue-200">B♭</button>
-                    <button class="maestro-btn key-btn placeholder bg-blue-50 text-blue-700 border-blue-200">C♭</button>
-                    <button class="maestro-btn key-btn placeholder bg-blue-50 text-blue-700 border-blue-200">D♭</button>
-                    <button class="maestro-btn key-btn placeholder bg-blue-50 text-blue-700 border-blue-200">E♭</button>
-                    <button class="maestro-btn key-btn placeholder bg-blue-50 text-blue-700 border-blue-200">F♭</button>
-                    <button class="maestro-btn key-btn placeholder bg-blue-50 text-blue-700 border-blue-200">G♭</button>
+                    <button class="maestro-btn key-btn bg-blue-50 text-blue-700 border-blue-200 tool-btn" onclick="ToolbarView.selectTool('key', 'Ab', this)">A♭</button>
+                    <button class="maestro-btn key-btn bg-blue-50 text-blue-700 border-blue-200 tool-btn" onclick="ToolbarView.selectTool('key', 'Bb', this)">B♭</button>
+                    <button class="maestro-btn key-btn bg-blue-50 text-blue-700 border-blue-200 tool-btn" onclick="ToolbarView.selectTool('key', 'Cb', this)">C♭</button>
+                    <button class="maestro-btn key-btn bg-blue-50 text-blue-700 border-blue-200 tool-btn" onclick="ToolbarView.selectTool('key', 'Db', this)">D♭</button>
+                    <button class="maestro-btn key-btn bg-blue-50 text-blue-700 border-blue-200 tool-btn" onclick="ToolbarView.selectTool('key', 'Eb', this)">E♭</button>
+                    <button class="maestro-btn key-btn bg-blue-50 text-blue-700 border-blue-200 tool-btn" onclick="ToolbarView.selectTool('key', 'Fb', this)">F♭</button>
+                    <button class="maestro-btn key-btn bg-blue-50 text-blue-700 border-blue-200 tool-btn" onclick="ToolbarView.selectTool('key', 'Gb', this)">G♭</button>
                 </div>
             </div>
 
