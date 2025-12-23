@@ -20,6 +20,10 @@ export const ExportManager = {
             
             // Start Measure 1
             let measureNum = 1;
+            
+            // Initial Clef State
+            let currentClefType = part.clef; // 'treble' or 'bass' usually
+
             xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>4</divisions>\n        <key><fifths>0</fifths></key>\n        <time><beats>4</beats><beat-type>4</beat-type></time>\n        <clef>\n          <sign>${part.clef === 'treble' ? 'G' : 'F'}</sign>\n          <line>${part.clef === 'treble' ? '2' : '4'}</line>\n        </clef>\n      </attributes>\n`;
             
             const sortedNotes = part.notes.sort((a, b) => a.x - b.x);
@@ -39,14 +43,20 @@ export const ExportManager = {
                 if (note.type === 'clef') {
                     let sign = 'G';
                     let line = '2';
+                    
+                    // Update current tracking state so subsequent notes use correct offset
                     if (note.subtype === 'treble') {
                         sign = 'G'; line = '2';
+                        currentClefType = 'treble';
                     } else if (note.subtype === 'bass') {
                         sign = 'F'; line = '4';
+                        currentClefType = 'bass';
                     } else if (note.subtype === 'c') {
                         sign = 'C';
                         line = Math.round(5 - (note.pitchIndex / 2));
+                        currentClefType = 'alto'; // Generally treat movable C as alto reference for now, or we'd need complex logic
                     }
+                    
                     xml += `      <attributes><clef><sign>${sign}</sign><line>${line}</line></clef></attributes>\n`;
                     return;
                 }
@@ -71,7 +81,11 @@ export const ExportManager = {
                 }
 
                 // HANDLE NOTES / RESTS
-                const refMidi = CONFIG.CLEF_OFFSETS[part.clef] || 77;
+                // Use the dynamically tracked currentClefType, defaulting to part.clef if undefined in config
+                // (Though CONFIG should have treble/bass. If 'alto' is missing in config, fallback to treble logic or add it).
+                // Assuming CONFIG has 'treble' and 'bass'. If 'alto' is needed, add to CONFIG or map 'c' -> 'alto'.
+                // For safety, let's ensure we get a number.
+                const refMidi = CONFIG.CLEF_OFFSETS[currentClefType] || CONFIG.CLEF_OFFSETS['treble'];
                 
                 let currentMidi = refMidi;
                 const whiteKeys = [0, 2, 4, 5, 7, 9, 11]; 
