@@ -14,11 +14,11 @@ export const NoteRenderer = {
         if (!part) return;
 
         part.notes.forEach(note => {
-            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted);
+            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted, note.accidental);
         });
     },
 
-    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null, isDotted = false) {
+    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null, isDotted = false, accidental = null) {
         const part = State.parts.find(p => p.id === State.activePartId);
         
         // --- SYMBOL RENDERING (Segno/Coda) ---
@@ -107,9 +107,12 @@ export const NoteRenderer = {
         if (!renderSize) renderSize = 20;
 
         const el = document.createElement('div');
-        // Apply dotted class if applicable
-        const dottedClass = isDotted ? ' dotted' : '';
-        el.className = (type === 'rest' ? 'placed-note rest' : 'placed-note') + dottedClass;
+        // Apply modifiers
+        let classes = type === 'rest' ? 'placed-note rest' : 'placed-note';
+        if (isDotted) classes += ' dotted';
+        if (accidental) classes += ` accidental-${accidental}`;
+        
+        el.className = classes;
         
         const scaledSize = renderSize * PDF.scale;
         
@@ -119,8 +122,11 @@ export const NoteRenderer = {
         el.style.top = (renderY * PDF.scale) + 'px';
         
         if (type === 'rest') {
-             el.innerText = '𝄽'; // Quarter rest placeholder
-             el.style.fontSize = (scaledSize * 3) + 'px';
+             el.innerText = ''; // Clear text for box
+             el.style.border = '2px solid #ef4444'; // Red box
+             el.style.backgroundColor = 'transparent';
+             el.style.borderRadius = '0';
+             el.style.transform = "translate(-50%, -50%)"; // No rotation
         } else {
              el.style.transform = "translate(-50%, -50%) rotate(-15deg)";
         }
