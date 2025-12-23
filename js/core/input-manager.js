@@ -9,9 +9,9 @@ import { ToolbarView } from '../ui/toolbar-view.js';
 
 export const Input = {
     viewport: null,
-    isSpace: false,
-    isShift: false, // Track Shift key
+    isSpace: false, 
     isDragging: false, 
+    isShift: false,
     lastX: 0, 
     lastY: 0, 
     ghostNote: null,
@@ -22,6 +22,8 @@ export const Input = {
         window.addEventListener('keydown', this.handleKeyDown.bind(this));
         window.addEventListener('keyup', this.handleKeyUp.bind(this));
         
+        // Wait for PDF elements to be ready via PDF.initElements() called in main, 
+        // but we bind to the wrapper which is always there.
         const wrapper = document.getElementById('canvas-wrapper');
         wrapper.addEventListener('mousedown', this.handleCanvasDown.bind(this));
         
@@ -133,6 +135,48 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
+                // --- TIME SIGNATURE LOGIC ---
+                if (State.activeTool === 'time') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const part = State.parts.find(p => p.id === State.activePartId);
+                        
+                        // Calculate middle Y of system for placement
+                        const height = Math.abs(system.bottomY - system.topY);
+                        const midY = system.topY + (height / 2);
+                        
+                        part.notes.push({
+                            x,
+                            y: midY, 
+                            systemId: system.id,
+                            type: 'time',
+                            subtype: State.noteDuration // e.g. '4/4'
+                        });
+                        NoteRenderer.drawNote(x, midY, 0, 0, system.id, 'time', State.noteDuration);
+                    }
+                    return;
+                }
+
+                // --- KEY SIGNATURE LOGIC ---
+                if (State.activeTool === 'key') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const part = State.parts.find(p => p.id === State.activePartId);
+                        const height = Math.abs(system.bottomY - system.topY);
+                        const midY = system.topY + (height / 2);
+                        
+                        part.notes.push({
+                            x,
+                            y: midY,
+                            systemId: system.id,
+                            type: 'key',
+                            subtype: State.noteDuration // e.g. 'G', 'Bb'
+                        });
+                        NoteRenderer.drawNote(x, midY, 0, 0, system.id, 'key', State.noteDuration);
+                    }
+                    return;
+                }
+
                 // --- SYMBOL LOGIC (Segno/Coda) ---
                 if (State.activeTool === 'symbol') {
                     const system = ZoningEngine.checkZone(y);
@@ -174,6 +218,7 @@ export const Input = {
                 // --- CLEF LOGIC ---
                 if (State.activeTool === 'clef') {
                     if (State.noteDuration === 'c') {
+                        // C-Clef: Needs snapping
                         const snap = ZoningEngine.calculateSnap(y);
                         if (snap) {
                             const part = State.parts.find(p => p.id === State.activePartId);
@@ -188,6 +233,7 @@ export const Input = {
                             NoteRenderer.drawNote(x, snap.y, 0, snap.pitchIndex, snap.systemId, 'clef', 'c');
                         }
                     } else {
+                        // Treble/Bass: Fixed vertical pos
                         const system = ZoningEngine.checkZone(y);
                         if (system) {
                             const part = State.parts.find(p => p.id === State.activePartId);
@@ -225,12 +271,12 @@ export const Input = {
                 const snap = ZoningEngine.calculateSnap(y);
                 if (!snap) return; 
 
-                // --- CHORD STACKING LOGIC ---
-                // If Shift is held, check for snap to existing note X
+                // CHORD VISUAL SNAP
+                // If Shift is held, check for existing note to snap to
                 if (this.isShift) {
                     const snappedX = this.findSnapX(x, snap.systemId);
                     if (snappedX !== null) {
-                        x = snappedX; // Override X with existing note's X
+                        x = snappedX;
                     }
                 }
 
@@ -293,9 +339,62 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
+                // --- TIME SIG GHOST LOGIC ---
+                if (State.activeTool === 'time') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const height = Math.abs(system.bottomY - system.topY);
+                        // Vertical placement: Centered on staff, effectively
+                        const midY = system.topY + (height / 2);
+                        
+                        // Dimensions: 2x tall as wide. Extend to near lines.
+                        // Let's say height is ~80% of staff height
+                        const boxHeight = (height * 0.8) * PDF.scale;
+                        const boxWidth = (boxHeight * 0.5); // Aspect ratio
+
+                        this.ghostNote.className = 'ghost-time visible';
+                        this.ghostNote.style.width = boxWidth + 'px';
+                        this.ghostNote.style.height = boxHeight + 'px';
+                        this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                        this.ghostNote.style.top = (midY * PDF.scale) + 'px';
+                        this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                        this.ghostNote.style.borderRadius = '2px';
+                    } else {
+                        this.ghostNote.classList.remove('visible');
+                    }
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
+                // --- KEY SIG GHOST LOGIC ---
+                if (State.activeTool === 'key') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const height = Math.abs(system.bottomY - system.topY);
+                        const midY = system.topY + (height / 2);
+                        
+                        // Dimensions: Oval. Tangent to top/bottom.
+                        const ovalHeight = height * PDF.scale;
+                        // Width depends on complexity, but let's fix it for now or base on name
+                        // "clump of sharps/flats"
+                        const ovalWidth = (height * 1.2) * PDF.scale; 
+
+                        this.ghostNote.className = 'ghost-key visible';
+                        this.ghostNote.style.width = ovalWidth + 'px';
+                        this.ghostNote.style.height = ovalHeight + 'px';
+                        this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                        this.ghostNote.style.top = (midY * PDF.scale) + 'px';
+                        this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                        this.ghostNote.style.borderRadius = '50%';
+                    } else {
+                        this.ghostNote.classList.remove('visible');
+                    }
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
                 // --- SYMBOL GHOST LOGIC ---
                 if (State.activeTool === 'symbol') {
-                    // ... existing symbol ghost logic ...
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
                          const part = State.parts.find(p => p.id === State.activePartId);
@@ -320,7 +419,7 @@ export const Input = {
                              this.ghostNote.innerText = State.noteDuration === 'segno' ? '𝄋' : '𝄌';
                              this.ghostNote.style.width = boxSize + 'px';
                              this.ghostNote.style.height = boxSize + 'px';
-                             this.ghostNote.style.left = (closestBar.x * PDF.scale) + 'px'; 
+                             this.ghostNote.style.left = (closestBar.x * PDF.scale) + 'px'; // Snap ghost
                              this.ghostNote.style.top = (fixedY * PDF.scale) + 'px';
                              this.ghostNote.style.transform = 'translate(-50%, -50%)';
                          } else {
@@ -335,7 +434,6 @@ export const Input = {
 
                 // --- CLEF GHOST LOGIC ---
                 if (State.activeTool === 'clef') {
-                    // ... existing clef ghost logic ...
                     if (State.noteDuration === 'c') {
                          const snap = ZoningEngine.calculateSnap(y);
                          if (snap) {
@@ -452,7 +550,7 @@ export const Input = {
                         this.ghostNote.style.borderRadius = '50%';
                     }
                     
-                    this.ghostNote.style.left = (displayX * PDF.scale) + 'px'; // Use displayX for visual snap
+                    this.ghostNote.style.left = (displayX * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (snap.y * PDF.scale) + 'px';
                 } else {
                     this.ghostNote.classList.remove('visible');
