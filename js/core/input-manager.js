@@ -9,7 +9,8 @@ import { ToolbarView } from '../ui/toolbar-view.js';
 
 export const Input = {
     viewport: null,
-    isSpace: false, 
+    isSpace: false,
+    isShift: false, // Track Shift key
     isDragging: false, 
     lastX: 0, 
     lastY: 0, 
@@ -21,8 +22,6 @@ export const Input = {
         window.addEventListener('keydown', this.handleKeyDown.bind(this));
         window.addEventListener('keyup', this.handleKeyUp.bind(this));
         
-        // Wait for PDF elements to be ready via PDF.initElements() called in main, 
-        // but we bind to the wrapper which is always there.
         const wrapper = document.getElementById('canvas-wrapper');
         wrapper.addEventListener('mousedown', this.handleCanvasDown.bind(this));
         
@@ -44,6 +43,8 @@ export const Input = {
     },
 
     handleKeyDown(e) {
+        if (e.key === 'Shift') this.isShift = true;
+
         if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
             e.preventDefault(); this.isSpace = true;
             this.viewport.classList.add('grab-mode');
@@ -61,6 +62,8 @@ export const Input = {
     },
 
     handleKeyUp(e) {
+        if (e.key === 'Shift') this.isShift = false;
+
         if (e.code === 'Space') {
             this.isSpace = false; this.isDragging = false;
             this.viewport.classList.remove('grab-mode', 'grabbing');
@@ -88,6 +91,36 @@ export const Input = {
         }
     },
 
+    findSnapX(x, systemId) {
+        const part = State.parts.find(p => p.id === State.activePartId);
+        if (!part) return null;
+
+        // Threshold for snapping to an existing note (e.g., 20px)
+        const SNAP_THRESHOLD = 20; // in unscaled coordinates approximately
+        const SNAP_THRESHOLD_SCALED = 20 / PDF.scale;
+
+        let closestDist = Infinity;
+        let closestX = null;
+
+        part.notes.forEach(note => {
+            // Only snap to notes/rests in the same system
+            if (note.systemId === systemId) {
+                const dist = Math.abs(note.x - x);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestX = note.x;
+                }
+            }
+        });
+
+        // Use the scaled threshold logic to be consistent with visuals
+        // If we are zoomed in, 20px screen space is less unscaled units.
+        if (closestX !== null && closestDist * PDF.scale < 20) {
+            return closestX;
+        }
+        return null;
+    },
+
     handleCanvasDown(e) {
         if (this.isSpace) return;
         if (State.isCalibrating) {
@@ -98,7 +131,7 @@ export const Input = {
         if (State.activePartId) {
             const rect = PDF.canvas.getBoundingClientRect();
             if (Utils.checkCanvasBounds(e, rect)) {
-                const { x, y } = Utils.getPdfCoords(e, PDF.scale);
+                let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
                 // --- SYMBOL LOGIC (Segno/Coda) ---
                 if (State.activeTool === 'symbol') {
@@ -119,13 +152,14 @@ export const Input = {
                             }
                         });
                         
+                        // Valid snap threshold (20 units)
                         if (closestBar && closestDist < 20) {
                             const height = Math.abs(system.bottomY - system.topY);
                             // Place fixed above top line
                             const fixedY = system.topY - (height * 0.25);
                             
                             part.notes.push({
-                                x: closestBar.x, // Snap x
+                                x: closestBar.x, 
                                 y: fixedY, 
                                 systemId: system.id,
                                 type: 'symbol',
@@ -140,7 +174,6 @@ export const Input = {
                 // --- CLEF LOGIC ---
                 if (State.activeTool === 'clef') {
                     if (State.noteDuration === 'c') {
-                        // C-Clef: Needs snapping
                         const snap = ZoningEngine.calculateSnap(y);
                         if (snap) {
                             const part = State.parts.find(p => p.id === State.activePartId);
@@ -155,7 +188,6 @@ export const Input = {
                             NoteRenderer.drawNote(x, snap.y, 0, snap.pitchIndex, snap.systemId, 'clef', 'c');
                         }
                     } else {
-                        // Treble/Bass: Fixed vertical pos
                         const system = ZoningEngine.checkZone(y);
                         if (system) {
                             const part = State.parts.find(p => p.id === State.activePartId);
@@ -192,6 +224,15 @@ export const Input = {
                 // NOTE/REST LOGIC
                 const snap = ZoningEngine.calculateSnap(y);
                 if (!snap) return; 
+
+                // --- CHORD STACKING LOGIC ---
+                // If Shift is held, check for snap to existing note X
+                if (this.isShift) {
+                    const snappedX = this.findSnapX(x, snap.systemId);
+                    if (snappedX !== null) {
+                        x = snappedX; // Override X with existing note's X
+                    }
+                }
 
                 const part = State.parts.find(p => p.id === State.activePartId);
                 const system = part.calibration[snap.systemId];
@@ -250,10 +291,11 @@ export const Input = {
         if (State.activePartId && !this.isSpace) {
             const rect = PDF.canvas.getBoundingClientRect();
             if (Utils.checkCanvasBounds(e, rect)) {
-                const { x, y } = Utils.getPdfCoords(e, PDF.scale);
+                let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
                 // --- SYMBOL GHOST LOGIC ---
                 if (State.activeTool === 'symbol') {
+                    // ... existing symbol ghost logic ...
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
                          const part = State.parts.find(p => p.id === State.activePartId);
@@ -278,7 +320,7 @@ export const Input = {
                              this.ghostNote.innerText = State.noteDuration === 'segno' ? '𝄋' : '𝄌';
                              this.ghostNote.style.width = boxSize + 'px';
                              this.ghostNote.style.height = boxSize + 'px';
-                             this.ghostNote.style.left = (closestBar.x * PDF.scale) + 'px'; // Snap ghost
+                             this.ghostNote.style.left = (closestBar.x * PDF.scale) + 'px'; 
                              this.ghostNote.style.top = (fixedY * PDF.scale) + 'px';
                              this.ghostNote.style.transform = 'translate(-50%, -50%)';
                          } else {
@@ -293,6 +335,7 @@ export const Input = {
 
                 // --- CLEF GHOST LOGIC ---
                 if (State.activeTool === 'clef') {
+                    // ... existing clef ghost logic ...
                     if (State.noteDuration === 'c') {
                          const snap = ZoningEngine.calculateSnap(y);
                          if (snap) {
@@ -365,6 +408,16 @@ export const Input = {
                 const snap = ZoningEngine.calculateSnap(y);
                 
                 if (snap) {
+                    // CHORD VISUAL SNAP
+                    // If Shift is held, check for existing note to snap to
+                    let displayX = x;
+                    if (this.isShift) {
+                        const snappedX = this.findSnapX(x, snap.systemId);
+                        if (snappedX !== null) {
+                            displayX = snappedX;
+                        }
+                    }
+
                     const part = State.parts.find(p => p.id === State.activePartId);
                     const system = part.calibration[snap.systemId];
                     const dist = Math.abs(system.bottomY - system.topY);
@@ -379,12 +432,12 @@ export const Input = {
 
                     if (State.activeTool === 'rest') {
                         this.ghostNote.className = 'ghost-note rest visible' + dottedClass + accidentalClass;
-                        this.ghostNote.innerText = ''; // Clear Symbol
-                        this.ghostNote.style.width = visualWidth + 'px'; // Box size
-                        this.ghostNote.style.height = visualHeight + 'px'; // Box size
+                        this.ghostNote.innerText = ''; 
+                        this.ghostNote.style.width = visualWidth + 'px'; 
+                        this.ghostNote.style.height = visualHeight + 'px'; 
                         this.ghostNote.style.fontSize = '';
                         this.ghostNote.style.backgroundColor = 'transparent';
-                        this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; // Red border
+                        this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; 
                         this.ghostNote.style.transform = "translate(-50%, -50%)";
                         this.ghostNote.style.borderRadius = '0';
                     } else {
@@ -399,7 +452,7 @@ export const Input = {
                         this.ghostNote.style.borderRadius = '50%';
                     }
                     
-                    this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                    this.ghostNote.style.left = (displayX * PDF.scale) + 'px'; // Use displayX for visual snap
                     this.ghostNote.style.top = (snap.y * PDF.scale) + 'px';
                 } else {
                     this.ghostNote.classList.remove('visible');
