@@ -19,14 +19,11 @@ export const ExportManager = {
             xml += `  <part id="P${index + 1}">\n`;
             
             let measureNum = 1;
-            
-            // Initial State Configuration
-            let currentClefType = part.clef; // 'treble' or 'bass' usually
+            let currentClefType = part.clef; 
             let currentBeats = 4;
             let currentBeatType = 4;
             let currentFifths = 0;
 
-            // Start First Measure
             xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>${currentFifths}</fifths></key>\n        <time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time>\n        <clef>\n          <sign>${part.clef === 'treble' ? 'G' : 'F'}</sign>\n          <line>${part.clef === 'treble' ? '2' : '4'}</line>\n        </clef>\n      </attributes>\n`;
             
             const sortedNotes = part.notes.sort((a, b) => {
@@ -43,12 +40,10 @@ export const ExportManager = {
 
                 // --- TIME SIGNATURE EXPORT ---
                 if (note.type === 'time') {
-                    // Update state for future measures
                     const [beats, beatType] = note.subtype.split('/');
                     currentBeats = parseInt(beats);
                     currentBeatType = parseInt(beatType);
                     
-                    // Write the attribute change immediately
                     xml += `      <attributes><time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time></attributes>\n`;
                     continue;
                 }
@@ -97,21 +92,9 @@ export const ExportManager = {
                     else if (note.subtype === 'repeat') barlineXML = '<barline location="right"><bar-style>light-heavy</bar-style><repeat direction="backward"/></barline>';
 
                     if (barlineXML) xml += `      ${barlineXML}\n`;
-                    
-                    // Close current measure
                     xml += `    </measure>\n`;
                     measureNum++;
-                    
-                    // Open new measure with CURRENT state (inheriting previous time/key)
                     xml += `    <measure number="${measureNum}">\n`;
-                    // We typically DO NOT re-state attributes at start of every measure in MusicXML unless they change,
-                    // but keeping them explicit or just minimal is fine.
-                    // Ideally, we only write <attributes> if something changes. 
-                    // However, to ensure safety against the "reset to 4/4" bug, we simply DON'T write a default <attributes> block here.
-                    // We let the state persist implicitly.
-                    // MusicXML parsers inherit state from previous measures.
-                    
-                    // But if we want to be safe, we can write purely structural attributes? No, simpler is better.
                     continue;
                 }
 
