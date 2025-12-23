@@ -26,10 +26,32 @@ export const ExportManager = {
             let currentBeatType = 4;
             let currentFifths = 0;
 
-            // Start First Measure
             xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>${currentFifths}</fifths></key>\n        <time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time>\n        <clef>\n          <sign>${part.clef === 'treble' ? 'G' : 'F'}</sign>\n          <line>${part.clef === 'treble' ? '2' : '4'}</line>\n        </clef>\n      </attributes>\n`;
             
+            // --- CORRECT SORTING LOGIC ---
+            // 1. Sort systems by vertical position (top to bottom) to determine reading order
+            // part.calibration is an array of systems. The index is the systemId.
+            // We create a map of systemId -> sortIndex based on topY
+            
+            // Create a safe copy of calibration to sort
+            const systems = part.calibration.map((sys, idx) => ({ ...sys, originalId: idx }));
+            systems.sort((a, b) => a.topY - b.topY);
+            
+            const systemOrderMap = {};
+            systems.forEach((sys, orderIdx) => {
+                systemOrderMap[sys.originalId] = orderIdx;
+            });
+
+            // 2. Sort notes: First by System Order, then by X position
             const sortedNotes = part.notes.sort((a, b) => {
+                const sysA = systemOrderMap[a.systemId];
+                const sysB = systemOrderMap[b.systemId];
+                
+                if (sysA !== sysB) {
+                    return sysA - sysB; // Sort by system index (vertical order)
+                }
+                
+                // Within same system: Sort by X
                 // If X is very close, prioritize structural order: Barline -> Clef/Key/Time -> Notes
                 if (Math.abs(a.x - b.x) < 5.0) {
                     // Priority map (lower = earlier)
@@ -122,8 +144,9 @@ export const ExportManager = {
                 let isVoice2 = false;
                 let backupDuration = 0;
 
+                // Improved Chord Logic: Only chord with prev if same system AND same X
                 if (prevNote && (prevNote.type === 'note' || prevNote.type === 'rest') && (note.type === 'note' || note.type === 'rest')) {
-                    if (Math.abs(note.x - prevNote.x) < 2.0) {
+                    if (note.systemId === prevNote.systemId && Math.abs(note.x - prevNote.x) < 2.0) {
                         const sameDuration = (note.duration === prevNote.duration) && (!!note.isDotted === !!prevNote.isDotted);
                         if (sameDuration) {
                             isChord = true;
@@ -162,6 +185,7 @@ export const ExportManager = {
                                  note.duration === 8 ? 'eighth' : '16th';
 
                 // --- BEAMING LOGIC ---
+                // Helper: Note is beamable?
                 const isBeamable = (n) => n && n.type === 'note' && (n.duration === 8 || n.duration === 16);
                 
                 let beam1 = null; 
@@ -170,8 +194,9 @@ export const ExportManager = {
                 if (note.type === 'note' && !isChord && !isVoice2) { 
                     
                     if (isBeamable(note)) {
-                        const prevIsBeamable = isBeamable(prevNote) && Math.abs(note.x - prevNote.x) > 2.0; 
-                        const nextIsBeamable = isBeamable(nextNote) && Math.abs(nextNote.x - note.x) > 2.0; 
+                        // Ensure we only beam with notes in the same system
+                        const prevIsBeamable = isBeamable(prevNote) && prevNote.systemId === note.systemId && Math.abs(note.x - prevNote.x) > 2.0; 
+                        const nextIsBeamable = isBeamable(nextNote) && nextNote.systemId === note.systemId && Math.abs(nextNote.x - note.x) > 2.0; 
 
                         if (!prevIsBeamable && nextIsBeamable) {
                             beam1 = 'begin';
