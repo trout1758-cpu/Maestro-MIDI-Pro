@@ -266,6 +266,31 @@ body.calibration-mode #calibration-footer { display: flex; }
      transform: translate(-50%, -50%);
 }
 
+/* DOTTED NOTE STYLES */
+.placed-note.dotted::after, .ghost-note.dotted::after {
+    content: '.';
+    position: absolute;
+    font-size: 40px;
+    line-height: 0;
+    color: #2563eb; /* Matches note color */
+    right: -12px;
+    top: 0px; 
+    transform: rotate(15deg); /* Counter relative to the note's rotation */
+}
+
+/* DOTTED REST STYLES */
+.placed-note.rest.dotted::after, .ghost-note.rest.dotted::after {
+    content: '.';
+    position: absolute;
+    font-size: 30px;
+    line-height: 0;
+    color: #ef4444; /* Matches rest color */
+    right: -15px;
+    top: 40%;
+    transform: none;
+}
+
+
 /* PLACED BARLINE */
 .placed-barline {
     position: absolute;
