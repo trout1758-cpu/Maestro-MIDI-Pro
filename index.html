@@ -18,7 +18,8 @@
 
     <!-- MAIN HEADER -->
     <header id="main-header" class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 z-20 shadow-sm relative">
-        <div class="relative flex items-center gap-4">
+        <!-- Left: Parts -->
+        <div class="flex items-center">
             <button id="parts-dropdown-btn" onclick="UIManager.toggleMenu('parts-menu')" class="flex items-center gap-3 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors bg-white">
                 <div class="bg-black text-white p-1 rounded"><i data-lucide="layers" size="18"></i></div>
                 <div class="text-left leading-tight">
@@ -33,9 +34,18 @@
                     <i data-lucide="plus" size="16"></i> Add Part
                 </button>
             </div>
+        </div>
 
-            <!-- Delete Mode Button (Icon Only) -->
-            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="p-2 border border-red-200 rounded-lg text-red-600 hover:bg-red-50 transition-colors" title="Toggle Delete Mode">
+        <!-- Center: Edit Controls (Undo/Redo/Delete) -->
+        <div class="flex items-center gap-4 absolute left-1/2 transform -translate-x-1/2">
+            <button onclick="Input.undo()" class="p-2 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Undo (Ctrl+Z)">
+                <i data-lucide="rotate-ccw" size="20"></i>
+            </button>
+            <button onclick="Input.redo()" class="p-2 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Redo (Ctrl+Y)">
+                <i data-lucide="rotate-cw" size="20"></i>
+            </button>
+            <!-- Delete Button (Circular, Half size compared to before implies simpler) -->
+            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="p-2 border border-red-200 rounded-full text-red-600 hover:bg-red-50 transition-colors" title="Toggle Delete Mode">
                 <i data-lucide="trash-2" size="20"></i>
             </button>
         </div>
@@ -62,13 +72,6 @@
                 <p class="text-xs text-slate-400">Add systems and drag lines to match the staff.</p>
             </div>
         </div>
-        
-        <!-- Calibration-specific Zoom (Keep here or unify? User asked to float zoom generally. Let's float zoom for main view, keep calibration simple or use same float) -->
-        <!-- Actually, user said "For the zoom controls... put those just floating at the bottom right". This likely applies globally or at least for main view. -->
-        <!-- I will remove zoom from here too and let the global floating zoom handle it if possible, or duplicate/hide. -->
-        <!-- Let's keep a simplified header for calibration but use the floating zoom for consistency if desired, OR keep calibration zoom here. -->
-        <!-- Given "Calibration Mode" is a distinct state, I'll leave its header zoom for now to avoid breaking its specific logic unless requested. -->
-        <!-- But wait, if I move the main zoom, the user might expect zoom everywhere. Let's leave calibration header as is for safety unless asked. -->
 
         <div class="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-600">
             <button onclick="PDF.adjustZoom(-0.1)" class="p-1 text-slate-300 hover:text-white"><i data-lucide="minus-circle" size="16"></i></button>
