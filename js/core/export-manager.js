@@ -98,11 +98,6 @@ export const ExportManager = {
                 const octave = Math.floor(currentMidi / 12) - 1; 
 
                 // Divisions = 24.
-                // 1 (Whole) -> 24*4 = 96
-                // 2 (Half) -> 24*2 = 48
-                // 4 (Quarter) -> 24*1 = 24
-                // 8 (Eighth) -> 12
-                // 16 (16th) -> 6
                 let durationXML = (4 * 24) / note.duration;
                 if (note.isDotted) {
                     durationXML = durationXML * 1.5;
@@ -118,13 +113,38 @@ export const ExportManager = {
                 if (note.type === 'rest') {
                      xml += `        <rest/>\n`;
                 } else {
-                     xml += `        <pitch>\n          <step>${stepName}</step>\n          <octave>${octave}</octave>\n        </pitch>\n`;
+                     xml += `        <pitch>\n          <step>${stepName}</step>\n`;
+                     
+                     // Accidental Logic for Pitch Alteration
+                     // IMPORTANT: This overrides key signature logic.
+                     if (note.accidental) {
+                         let alter = 0;
+                         if (note.accidental === 'sharp') alter = 1;
+                         if (note.accidental === 'flat') alter = -1;
+                         if (note.accidental === 'natural') alter = 0; // Explicit natural
+                         
+                         // If natural, we generally don't need <alter> unless we are cancelling a key sig. 
+                         // But since we are "modifying appropriately regardless of key", we should explicitly state it if non-zero.
+                         // Standard MusicXML: <alter> is semitones.
+                         if (alter !== 0) {
+                             xml += `          <alter>${alter}</alter>\n`;
+                         }
+                     }
+
+                     xml += `          <octave>${octave}</octave>\n        </pitch>\n`;
                 }
                 
                 xml += `        <duration>${durationXML}</duration>\n        <type>${typeName}</type>\n`;
+                
                 if (note.isDotted) {
                     xml += `        <dot/>\n`;
                 }
+
+                // Explicit Accidental Tag (Visual)
+                if (note.accidental) {
+                    xml += `        <accidental>${note.accidental}</accidental>\n`;
+                }
+
                 xml += `      </note>\n`;
             });
 
