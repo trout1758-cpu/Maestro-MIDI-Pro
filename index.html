@@ -170,9 +170,9 @@
             <div id="tools-noterest" class="flex gap-6 items-center justify-center w-full hidden">
                 <!-- Accidentals (Left) -->
                 <div class="flex gap-2">
-                    <button class="maestro-btn placeholder note-grid-btn" title="Sharp">♯</button>
-                    <button class="maestro-btn placeholder note-grid-btn" title="Natural">♮</button>
-                    <button class="maestro-btn placeholder note-grid-btn" title="Flat">♭</button>
+                    <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Sharp" onclick="ToolbarView.toggleAccidental('sharp', this)">♯</button>
+                    <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Natural" onclick="ToolbarView.toggleAccidental('natural', this)">♮</button>
+                    <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Flat" onclick="ToolbarView.toggleAccidental('flat', this)">♭</button>
                 </div>
                 <!-- Notes/Rests Grid (Center) -->
                 <div class="flex flex-col gap-2">
