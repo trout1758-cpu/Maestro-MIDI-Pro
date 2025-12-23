@@ -35,16 +35,23 @@
             </div>
         </div>
         
-        <!-- Zoom -->
-        <div class="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200 relative z-30">
-             <button onclick="FileManager.triggerUpload()" class="px-3 py-1 text-sm font-semibold hover:bg-white rounded shadow-sm transition-all flex gap-2 mr-2 cursor-pointer z-50">
-                <i data-lucide="upload" size="16"></i> Upload PDF
+        <!-- Center Controls: Upload & Zoom -->
+        <div class="flex items-center gap-4">
+             <div class="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200 relative z-30">
+                 <button onclick="FileManager.triggerUpload()" class="px-3 py-1 text-sm font-semibold hover:bg-white rounded shadow-sm transition-all flex gap-2 mr-2 cursor-pointer z-50">
+                    <i data-lucide="upload" size="16"></i> Upload PDF
+                </button>
+                <input type="file" id="file-upload" accept="application/pdf" class="hidden">
+                <div class="w-px h-5 bg-gray-300 mx-2"></div>
+                <button onclick="PDF.adjustZoom(-0.1)" class="p-1 hover:text-blue-600"><i data-lucide="minus-circle" size="16"></i></button>
+                <span class="text-xs font-mono w-12 text-center zoom-display">100%</span>
+                <button onclick="PDF.adjustZoom(0.1)" class="p-1 hover:text-blue-600"><i data-lucide="plus-circle" size="16"></i></button>
+            </div>
+
+            <!-- Delete Mode Button -->
+            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="flex items-center gap-2 px-4 py-2 border border-red-200 rounded-lg text-red-600 font-bold text-sm hover:bg-red-50 transition-colors" title="Toggle Delete Mode">
+                <i data-lucide="trash-2" size="18"></i> Delete
             </button>
-            <input type="file" id="file-upload" accept="application/pdf" class="hidden">
-            <div class="w-px h-5 bg-gray-300 mx-2"></div>
-            <button onclick="PDF.adjustZoom(-0.1)" class="p-1 hover:text-blue-600"><i data-lucide="minus-circle" size="16"></i></button>
-            <span class="text-xs font-mono w-12 text-center zoom-display">100%</span>
-            <button onclick="PDF.adjustZoom(0.1)" class="p-1 hover:text-blue-600"><i data-lucide="plus-circle" size="16"></i></button>
         </div>
         
         <button onclick="ExportManager.exportXML()" class="bg-slate-900 text-white px-5 py-2 rounded shadow hover:bg-slate-800 font-semibold text-sm flex items-center gap-2">
@@ -92,6 +99,7 @@
     <section id="control-deck" class="bg-white border-b border-gray-200 shadow-sm z-10 flex flex-col toolbar-disabled transition-all duration-300">
         <!-- TABS -->
         <div class="flex items-center justify-center gap-1 pt-1 border-b border-gray-100 overflow-x-auto">
+            <button class="tab-btn" onclick="ToolbarView.toggleCategory('select')">Select</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('measure')">Measure</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('signature')">Signature</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('noterest')">Notes/Rests</button>
@@ -103,6 +111,33 @@
         <!-- TOOL CONTAINER -->
         <div class="h-28 bg-gray-50 flex items-center justify-center opacity-50 relative px-6 transition-opacity duration-200" id="tool-container">
             
+            <!-- 0. SELECT (New) -->
+            <div id="tools-select" class="flex gap-6 items-center justify-center w-full hidden">
+                <button class="maestro-btn placeholder" title="Single Select" disabled>
+                    <i data-lucide="mouse-pointer-2" size="24"></i>
+                </button>
+                <button class="maestro-btn placeholder relative" title="Multi-Select" disabled>
+                    <i data-lucide="mouse-pointer-2" size="24" class="absolute top-3 left-3"></i>
+                    <i data-lucide="mouse-pointer-2" size="24" class="absolute top-4 left-5 opacity-50 transform scale-75"></i>
+                </button>
+                <button class="maestro-btn placeholder relative" title="Measure Select" disabled>
+                     <!-- Custom Measure Icon -->
+                     <div class="measure-icon-container relative w-8 h-8 flex items-center justify-center">
+                        <!-- Staff Lines -->
+                        <div class="w-full h-4 border-t border-b border-gray-600 flex flex-col justify-center gap-0.5">
+                            <div class="w-full h-px bg-gray-600"></div>
+                            <div class="w-full h-px bg-gray-600"></div>
+                            <div class="w-full h-px bg-gray-600"></div>
+                        </div>
+                        <!-- Bar Lines -->
+                        <div class="absolute left-0 top-0 bottom-0 w-px bg-gray-800 h-6 mt-1"></div>
+                        <div class="absolute right-0 top-0 bottom-0 w-px bg-gray-800 h-6 mt-1"></div>
+                        <!-- Cursor Overlay -->
+                        <i data-lucide="mouse-pointer-2" size="16" class="absolute -bottom-1 -right-2 text-black fill-black"></i>
+                     </div>
+                </button>
+            </div>
+
             <!-- 1. MEASURE (Visuals) -->
             <div id="tools-measure" class="flex gap-4 items-center w-full justify-center hidden">
                 <div class="flex gap-2">
