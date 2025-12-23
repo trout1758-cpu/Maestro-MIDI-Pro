@@ -100,6 +100,44 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
+                // --- SYMBOL LOGIC (Segno/Coda) ---
+                if (State.activeTool === 'symbol') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                        const part = State.parts.find(p => p.id === State.activePartId);
+                        
+                        // SNAP TO BARLINE
+                        const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === system.id);
+                        let closestDist = Infinity;
+                        let closestBar = null;
+                        
+                        barlines.forEach(bar => {
+                            const dist = Math.abs(bar.x - x);
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestBar = bar;
+                            }
+                        });
+                        
+                        // Valid snap threshold (20 units)
+                        if (closestBar && closestDist < 20) {
+                            const height = Math.abs(system.bottomY - system.topY);
+                            // Place fixed above top line
+                            const fixedY = system.topY - (height * 0.25);
+                            
+                            part.notes.push({
+                                x: closestBar.x, // Snap x
+                                y: fixedY, 
+                                systemId: system.id,
+                                type: 'symbol',
+                                subtype: State.noteDuration 
+                            });
+                            NoteRenderer.drawNote(closestBar.x, fixedY, 0, 0, system.id, 'symbol', State.noteDuration);
+                        }
+                    }
+                    return;
+                }
+
                 // --- CLEF LOGIC ---
                 if (State.activeTool === 'clef') {
                     if (State.noteDuration === 'c') {
@@ -122,13 +160,12 @@ export const Input = {
                         const system = ZoningEngine.checkZone(y);
                         if (system) {
                             const part = State.parts.find(p => p.id === State.activePartId);
-                            // We don't need snap y for fixed clefs, just system top ref
                             part.notes.push({
                                 x,
                                 y: system.topY, 
                                 systemId: system.id,
                                 type: 'clef',
-                                subtype: State.noteDuration // 'treble' or 'bass'
+                                subtype: State.noteDuration 
                             });
                             NoteRenderer.drawNote(x, system.topY, 0, 0, system.id, 'clef', State.noteDuration);
                         }
@@ -214,6 +251,45 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
+                // --- SYMBOL GHOST LOGIC ---
+                if (State.activeTool === 'symbol') {
+                    const system = ZoningEngine.checkZone(y);
+                    if (system) {
+                         const part = State.parts.find(p => p.id === State.activePartId);
+                         const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === system.id);
+                         let closestDist = Infinity;
+                         let closestBar = null;
+                         
+                         barlines.forEach(bar => {
+                             const dist = Math.abs(bar.x - x);
+                             if (dist < closestDist) {
+                                 closestDist = dist;
+                                 closestBar = bar;
+                             }
+                         });
+                         
+                         if (closestBar && closestDist < 20) {
+                             const height = Math.abs(system.bottomY - system.topY);
+                             const fixedY = system.topY - (height * 0.25);
+                             const boxSize = (height * 0.6) * PDF.scale;
+                             
+                             this.ghostNote.className = 'ghost-symbol visible';
+                             this.ghostNote.innerText = State.noteDuration === 'segno' ? '𝄋' : '𝄌';
+                             this.ghostNote.style.width = boxSize + 'px';
+                             this.ghostNote.style.height = boxSize + 'px';
+                             this.ghostNote.style.left = (closestBar.x * PDF.scale) + 'px'; // Snap ghost
+                             this.ghostNote.style.top = (fixedY * PDF.scale) + 'px';
+                             this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                         } else {
+                             this.ghostNote.classList.remove('visible');
+                         }
+                    } else {
+                        this.ghostNote.classList.remove('visible');
+                    }
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
                 // --- CLEF GHOST LOGIC ---
                 if (State.activeTool === 'clef') {
                     if (State.noteDuration === 'c') {
@@ -237,16 +313,12 @@ export const Input = {
                              this.ghostNote.classList.remove('visible');
                          }
                     } else {
-                        // Treble/Bass fixed
                         const system = ZoningEngine.checkZone(y);
                         if (system) {
                              const height = Math.abs(system.bottomY - system.topY);
-                             const boxHeight = (height * 0.9) * PDF.scale; // slightly smaller than staff
+                             const boxHeight = (height * 0.9) * PDF.scale; 
                              const boxWidth = (height * 0.6) * PDF.scale;
                              
-                             // Visual fixed position offsets
-                             // Treble center index 6, Bass index 2. 
-                             // Step = height/8. TopY + (index * step)
                              const step = height / 8;
                              const idx = State.noteDuration === 'treble' ? 6 : 2;
                              const fixedY = system.topY + (idx * step);
