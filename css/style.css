@@ -275,6 +275,7 @@ body.calibration-mode #calibration-footer { display: flex; }
     pointer-events: auto; cursor: pointer; z-index: 50;
 }
 .placed-note:hover { background-color: #1e40af; }
+.placed-note.selected { border: 2px solid #22c55e; background-color: #22c55e; } /* Green for selected */
 
 .placed-note.rest {
      background-color: transparent;
@@ -284,6 +285,7 @@ body.calibration-mode #calibration-footer { display: flex; }
      transform: translate(-50%, -50%);
 }
 .placed-note.rest:hover { border-color: #b91c1c; background-color: transparent; }
+.placed-note.rest.selected { border-color: #22c55e; }
 
 /* DOTTED NOTE STYLES */
 .placed-note.dotted::after, .ghost-note.dotted::after {
@@ -296,6 +298,7 @@ body.calibration-mode #calibration-footer { display: flex; }
     top: 0px; 
     transform: rotate(15deg); /* Counter relative to the note's rotation */
 }
+.placed-note.selected.dotted::after { color: #22c55e; }
 
 /* DOTTED REST STYLES */
 .placed-note.rest.dotted::after, .ghost-note.rest.dotted::after {
@@ -308,6 +311,7 @@ body.calibration-mode #calibration-footer { display: flex; }
     top: 40%;
     transform: none;
 }
+.placed-note.rest.selected.dotted::after { color: #22c55e; }
 
 /* ACCIDENTAL STYLES */
 .placed-note.accidental-sharp::before, .ghost-note.accidental-sharp::before,
@@ -322,7 +326,12 @@ body.calibration-mode #calibration-footer { display: flex; }
     background: transparent;
     left: -20px; /* Position to the left */
     top: 50%;
-    transform: translateY(-50%) rotate(15deg); /* Match rotation inverse? No, keep it aligned */
+    transform: translateY(-50%) rotate(15deg); 
+}
+.placed-note.selected.accidental-sharp::before, 
+.placed-note.selected.accidental-flat::before, 
+.placed-note.selected.accidental-natural::before {
+    border-color: #22c55e;
 }
 
 /* Adjust rest alignment since they don't rotate */
@@ -343,24 +352,32 @@ body.calibration-mode #calibration-footer { display: flex; }
     width: 3px;
     background-color: #2563eb;
 }
+.placed-barline.selected { background-color: #22c55e; border-color: #22c55e; }
+
 .placed-barline.double {
     width: 10px;
     background-color: transparent;
     border-left: 2px solid #2563eb;
     border-right: 2px solid #2563eb;
 }
+.placed-barline.selected.double { border-color: #22c55e; }
+
 .placed-barline.final {
     width: 12px;
     background-color: transparent;
     border-left: 2px solid #2563eb;
     border-right: 6px solid #2563eb;
 }
+.placed-barline.selected.final { border-color: #22c55e; }
+
 .placed-barline.repeat {
     width: 12px;
     background-color: transparent;
     border-left: 2px solid #2563eb;
     border-right: 6px solid #2563eb;
 }
+.placed-barline.selected.repeat { border-color: #22c55e; }
+
 .placed-barline.repeat::before, .placed-barline.repeat::after {
     content: ''; 
     position: absolute; 
@@ -370,6 +387,8 @@ body.calibration-mode #calibration-footer { display: flex; }
     border-radius: 50%; 
     background: #2563eb;
 }
+.placed-barline.selected.repeat::before, .placed-barline.selected.repeat::after { background: #22c55e; }
+
 .placed-barline.repeat::before { top: 35%; }
 .placed-barline.repeat::after { bottom: 35%; }
 
@@ -387,6 +406,8 @@ body.calibration-mode #calibration-footer { display: flex; }
     border-radius: 4px;
     transform: translate(-50%, -50%);
 }
+.placed-clef.selected { border-color: #22c55e; }
+
 .placed-clef.c::after {
     content: '';
     position: absolute;
@@ -394,6 +415,7 @@ body.calibration-mode #calibration-footer { display: flex; }
     height: 2px;
     background-color: #2563eb;
 }
+.placed-clef.selected.c::after { background-color: #22c55e; }
 
 .placed-clef:hover { border-color: #1e40af; }
 .placed-clef.c:hover::after { background-color: #1e40af; }
@@ -414,6 +436,7 @@ body.calibration-mode #calibration-footer { display: flex; }
     font-size: 1.5rem;
     color: #2563eb;
 }
+.placed-symbol.selected { border-color: #22c55e; color: #22c55e; }
 .placed-symbol:hover { border-color: #1e40af; color: #1e40af; }
 
 /* PLACED TIME SIG */
@@ -427,6 +450,7 @@ body.calibration-mode #calibration-footer { display: flex; }
     border-radius: 2px;
     transform: translate(-50%, -50%);
 }
+.placed-time.selected { border-color: #22c55e; }
 .placed-time:hover { border-color: #1e40af; }
 
 /* PLACED KEY SIG */
@@ -440,7 +464,17 @@ body.calibration-mode #calibration-footer { display: flex; }
     border-radius: 50%;
     transform: translate(-50%, -50%);
 }
+.placed-key.selected { border-color: #22c55e; }
 .placed-key:hover { border-color: #1e40af; }
+
+/* SELECTION BOX */
+.selection-box {
+    position: absolute;
+    border: 1px dashed #22c55e;
+    background-color: rgba(34, 197, 94, 0.2);
+    pointer-events: none;
+    z-index: 100;
+}
 
 
 /* PITCH INDICATOR */
