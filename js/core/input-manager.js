@@ -206,10 +206,11 @@ export const Input = {
                     systemId: snap.systemId,
                     pitchIndex: snap.pitchIndex,
                     duration: State.noteDuration, // Save Duration
-                    type: State.activeTool // Save Type (Note vs Rest)
+                    type: State.activeTool, // Save Type (Note vs Rest)
+                    isDotted: State.isDotted // Save Dot State
                 });
                 
-                NoteRenderer.drawNote(x, snap.y, noteSize, snap.pitchIndex, snap.systemId, State.activeTool);
+                NoteRenderer.drawNote(x, snap.y, noteSize, snap.pitchIndex, snap.systemId, State.activeTool, null, State.isDotted);
             }
         }
     },
@@ -372,8 +373,11 @@ export const Input = {
                     const visualHeight = noteHeightUnscaled * PDF.scale;
                     const visualWidth = visualHeight * 1.3; 
                     
+                    // Apply dotted class if state is toggled
+                    const dottedClass = State.isDotted ? ' dotted' : '';
+
                     if (State.activeTool === 'rest') {
-                        this.ghostNote.className = 'ghost-note rest visible';
+                        this.ghostNote.className = 'ghost-note rest visible' + dottedClass;
                         this.ghostNote.innerText = '𝄽';
                         this.ghostNote.style.width = 'auto';
                         this.ghostNote.style.height = 'auto';
@@ -381,8 +385,9 @@ export const Input = {
                         this.ghostNote.style.backgroundColor = 'transparent';
                         this.ghostNote.style.border = 'none';
                         this.ghostNote.style.transform = "translate(-50%, -50%)";
+                        this.ghostNote.style.borderRadius = '0';
                     } else {
-                        this.ghostNote.className = 'ghost-note visible';
+                        this.ghostNote.className = 'ghost-note visible' + dottedClass;
                         this.ghostNote.innerText = '';
                         this.ghostNote.style.width = visualWidth + 'px';
                         this.ghostNote.style.height = visualHeight + 'px';
