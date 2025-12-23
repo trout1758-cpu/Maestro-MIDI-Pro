@@ -7,5 +7,6 @@ export const State = {
     activeTool: 'note', // 'note', 'rest', 'barline', 'clef', 'symbol'
     noteDuration: 4,    // 4=quarter, 8=eighth, etc. or subtypes like 'treble', 'segno'
     isDotted: false,    // Toggle state for dotted notes
-    activeAccidental: null // null, 'sharp', 'flat', 'natural'
+    activeAccidental: null, // null, 'sharp', 'flat', 'natural'
+    isTieMode: false    // Toggle state for Tie tool
 };
