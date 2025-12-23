@@ -226,6 +226,24 @@ body.calibration-mode #calibration-footer { display: flex; }
 }
 .ghost-clef.visible { display: block; }
 
+/* GHOST SYMBOL (Segno/Coda) */
+.ghost-symbol {
+    position: absolute;
+    border: 2px solid rgba(56, 189, 248, 0.6);
+    pointer-events: none;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Noto Music';
+    color: rgba(56, 189, 248, 0.6);
+    font-size: 1.5rem;
+    background-color: transparent;
+    border-radius: 4px;
+    display: none;
+}
+.ghost-symbol.visible { display: flex; }
+
 
 /* PLACED NOTE */
 .placed-note {
@@ -312,6 +330,24 @@ body.calibration-mode #calibration-footer { display: flex; }
 
 .placed-clef:hover { border-color: #1e40af; }
 .placed-clef.c:hover::after { background-color: #1e40af; }
+
+
+/* PLACED SYMBOL (Segno/Coda) */
+.placed-symbol {
+    position: absolute;
+    border: 2px solid #2563eb;
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 50;
+    background-color: transparent;
+    border-radius: 4px;
+    transform: translate(-50%, -50%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Noto Music';
+    font-size: 1.5rem;
+    color: #2563eb;
+}
+.placed-symbol:hover { border-color: #1e40af; color: #1e40af; }
 
 
 /* PITCH INDICATOR */
