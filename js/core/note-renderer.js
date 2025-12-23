@@ -14,11 +14,11 @@ export const NoteRenderer = {
         if (!part) return;
 
         part.notes.forEach(note => {
-            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype);
+            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted);
         });
     },
 
-    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null) {
+    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null, isDotted = false) {
         const part = State.parts.find(p => p.id === State.activePartId);
         
         // --- SYMBOL RENDERING (Segno/Coda) ---
@@ -107,7 +107,9 @@ export const NoteRenderer = {
         if (!renderSize) renderSize = 20;
 
         const el = document.createElement('div');
-        el.className = type === 'rest' ? 'placed-note rest' : 'placed-note';
+        // Apply dotted class if applicable
+        const dottedClass = isDotted ? ' dotted' : '';
+        el.className = (type === 'rest' ? 'placed-note rest' : 'placed-note') + dottedClass;
         
         const scaledSize = renderSize * PDF.scale;
         
