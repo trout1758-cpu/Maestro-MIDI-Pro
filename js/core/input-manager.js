@@ -119,7 +119,6 @@ export const Input = {
                             }
                         });
                         
-                        // Valid snap threshold (20 units)
                         if (closestBar && closestDist < 20) {
                             const height = Math.abs(system.bottomY - system.topY);
                             // Place fixed above top line
@@ -207,10 +206,11 @@ export const Input = {
                     pitchIndex: snap.pitchIndex,
                     duration: State.noteDuration, // Save Duration
                     type: State.activeTool, // Save Type (Note vs Rest)
-                    isDotted: State.isDotted // Save Dot State
+                    isDotted: State.isDotted, // Save Dot State
+                    accidental: State.activeAccidental // Save Accidental State (null, 'sharp', 'flat', 'natural')
                 });
                 
-                NoteRenderer.drawNote(x, snap.y, noteSize, snap.pitchIndex, snap.systemId, State.activeTool, null, State.isDotted);
+                NoteRenderer.drawNote(x, snap.y, noteSize, snap.pitchIndex, snap.systemId, State.activeTool, null, State.isDotted, State.activeAccidental);
             }
         }
     },
@@ -373,21 +373,22 @@ export const Input = {
                     const visualHeight = noteHeightUnscaled * PDF.scale;
                     const visualWidth = visualHeight * 1.3; 
                     
-                    // Apply dotted class if state is toggled
+                    // Apply modifier classes
                     const dottedClass = State.isDotted ? ' dotted' : '';
+                    const accidentalClass = State.activeAccidental ? ` accidental-${State.activeAccidental}` : '';
 
                     if (State.activeTool === 'rest') {
-                        this.ghostNote.className = 'ghost-note rest visible' + dottedClass;
-                        this.ghostNote.innerText = '𝄽';
-                        this.ghostNote.style.width = 'auto';
-                        this.ghostNote.style.height = 'auto';
-                        this.ghostNote.style.fontSize = (visualHeight * 3) + 'px';
+                        this.ghostNote.className = 'ghost-note rest visible' + dottedClass + accidentalClass;
+                        this.ghostNote.innerText = ''; // Clear Symbol
+                        this.ghostNote.style.width = visualWidth + 'px'; // Box size
+                        this.ghostNote.style.height = visualHeight + 'px'; // Box size
+                        this.ghostNote.style.fontSize = '';
                         this.ghostNote.style.backgroundColor = 'transparent';
-                        this.ghostNote.style.border = 'none';
+                        this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; // Red border
                         this.ghostNote.style.transform = "translate(-50%, -50%)";
                         this.ghostNote.style.borderRadius = '0';
                     } else {
-                        this.ghostNote.className = 'ghost-note visible' + dottedClass;
+                        this.ghostNote.className = 'ghost-note visible' + dottedClass + accidentalClass;
                         this.ghostNote.innerText = '';
                         this.ghostNote.style.width = visualWidth + 'px';
                         this.ghostNote.style.height = visualHeight + 'px';
