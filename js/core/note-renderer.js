@@ -21,6 +21,28 @@ export const NoteRenderer = {
     drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null) {
         const part = State.parts.find(p => p.id === State.activePartId);
         
+        // --- SYMBOL RENDERING (Segno/Coda) ---
+        if (type === 'symbol') {
+            const system = part.calibration[systemId];
+            if (!system) return;
+            const height = Math.abs(system.bottomY - system.topY);
+            
+            // Re-calculate fixed position to ensure consistency
+            const fixedY = system.topY - (height * 0.25);
+            const boxSize = (height * 0.6) * PDF.scale;
+            
+            const el = document.createElement('div');
+            el.className = 'placed-symbol';
+            el.innerText = subtype === 'segno' ? '𝄋' : '𝄌';
+            el.style.width = boxSize + 'px';
+            el.style.height = boxSize + 'px';
+            el.style.left = (unscaledX * PDF.scale) + 'px';
+            el.style.top = (fixedY * PDF.scale) + 'px';
+            
+            PDF.overlay.appendChild(el);
+            return;
+        }
+
         // --- CLEF RENDERING ---
         if (type === 'clef') {
             const system = part.calibration[systemId];
@@ -37,7 +59,6 @@ export const NoteRenderer = {
                 const step = height / 8;
                 renderY = system.topY + (2 * step);
             } 
-            // subtype 'c' uses passed unscaledY which is already snapped
             
             const boxHeight = (height * 0.9) * PDF.scale;
             const boxWidth = (height * 0.6) * PDF.scale;
