@@ -143,6 +143,31 @@ export const Input = {
             if (Utils.checkCanvasBounds(e, rect)) {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 
+                // --- DELETE MODE LOGIC ---
+                if (State.isDeleteMode) {
+                    const part = State.parts.find(p => p.id === State.activePartId);
+                    if(!part) return;
+
+                    // Find closest object
+                    const CLICK_THRESHOLD = 20 / PDF.scale;
+                    let closestIdx = -1;
+                    let minDistance = Infinity;
+
+                    part.notes.forEach((obj, idx) => {
+                        const dist = Math.sqrt(Math.pow(obj.x - x, 2) + Math.pow(obj.y - y, 2));
+                        if (dist < CLICK_THRESHOLD && dist < minDistance) {
+                            minDistance = dist;
+                            closestIdx = idx;
+                        }
+                    });
+
+                    if (closestIdx !== -1) {
+                        part.notes.splice(closestIdx, 1);
+                        NoteRenderer.renderAll();
+                    }
+                    return;
+                }
+
                 // --- TIE MODE LOGIC (Start Drag) ---
                 if (State.isTieMode) {
                     const clickedNote = this.findTargetNote(x, y);
@@ -334,7 +359,8 @@ export const Input = {
         }
 
         if (State.activePartId && !this.isSpace) {
-            if (State.isTieMode) {
+            // Disable ghost note in DELETE MODE and TIE MODE
+            if (State.isTieMode || State.isDeleteMode) {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 return; 
             }
