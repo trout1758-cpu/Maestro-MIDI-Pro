@@ -24,7 +24,7 @@ export const ExportManager = {
             // Initial Clef State
             let currentClefType = part.clef; // 'treble' or 'bass' usually
 
-            xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>4</divisions>\n        <key><fifths>0</fifths></key>\n        <time><beats>4</beats><beat-type>4</beat-type></time>\n        <clef>\n          <sign>${part.clef === 'treble' ? 'G' : 'F'}</sign>\n          <line>${part.clef === 'treble' ? '2' : '4'}</line>\n        </clef>\n      </attributes>\n`;
+            xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>0</fifths></key>\n        <time><beats>4</beats><beat-type>4</beat-type></time>\n        <clef>\n          <sign>${part.clef === 'treble' ? 'G' : 'F'}</sign>\n          <line>${part.clef === 'treble' ? '2' : '4'}</line>\n        </clef>\n      </attributes>\n`;
             
             const sortedNotes = part.notes.sort((a, b) => a.x - b.x);
             
@@ -54,7 +54,7 @@ export const ExportManager = {
                     } else if (note.subtype === 'c') {
                         sign = 'C';
                         line = Math.round(5 - (note.pitchIndex / 2));
-                        currentClefType = 'alto'; // Generally treat movable C as alto reference for now, or we'd need complex logic
+                        currentClefType = 'alto'; 
                     }
                     
                     xml += `      <attributes><clef><sign>${sign}</sign><line>${line}</line></clef></attributes>\n`;
@@ -81,10 +81,6 @@ export const ExportManager = {
                 }
 
                 // HANDLE NOTES / RESTS
-                // Use the dynamically tracked currentClefType, defaulting to part.clef if undefined in config
-                // (Though CONFIG should have treble/bass. If 'alto' is missing in config, fallback to treble logic or add it).
-                // Assuming CONFIG has 'treble' and 'bass'. If 'alto' is needed, add to CONFIG or map 'c' -> 'alto'.
-                // For safety, let's ensure we get a number.
                 const refMidi = CONFIG.CLEF_OFFSETS[currentClefType] || CONFIG.CLEF_OFFSETS['treble'];
                 
                 let currentMidi = refMidi;
@@ -101,7 +97,16 @@ export const ExportManager = {
                 const stepName = stepNames[currentMidi % 12];
                 const octave = Math.floor(currentMidi / 12) - 1; 
 
-                const durationXML = 16 / note.duration; 
+                // Divisions = 24.
+                // 1 (Whole) -> 24*4 = 96
+                // 2 (Half) -> 24*2 = 48
+                // 4 (Quarter) -> 24*1 = 24
+                // 8 (Eighth) -> 12
+                // 16 (16th) -> 6
+                let durationXML = (4 * 24) / note.duration;
+                if (note.isDotted) {
+                    durationXML = durationXML * 1.5;
+                }
                 
                 const typeName = note.duration === 1 ? 'whole' : 
                                  note.duration === 2 ? 'half' : 
@@ -116,7 +121,11 @@ export const ExportManager = {
                      xml += `        <pitch>\n          <step>${stepName}</step>\n          <octave>${octave}</octave>\n        </pitch>\n`;
                 }
                 
-                xml += `        <duration>${durationXML}</duration>\n        <type>${typeName}</type>\n      </note>\n`;
+                xml += `        <duration>${durationXML}</duration>\n        <type>${typeName}</type>\n`;
+                if (note.isDotted) {
+                    xml += `        <dot/>\n`;
+                }
+                xml += `      </note>\n`;
             });
 
             xml += `    </measure>\n  </part>\n`;
