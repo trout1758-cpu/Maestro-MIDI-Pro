@@ -19,15 +19,33 @@ export const ExportManager = {
             xml += `  <part id="P${index + 1}">\n`;
             
             let measureNum = 1;
+            
+            // Initial State Configuration
             let currentClefType = part.clef; 
             let currentBeats = 4;
             let currentBeatType = 4;
             let currentFifths = 0;
 
+            // Start First Measure
             xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>${currentFifths}</fifths></key>\n        <time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time>\n        <clef>\n          <sign>${part.clef === 'treble' ? 'G' : 'F'}</sign>\n          <line>${part.clef === 'treble' ? '2' : '4'}</line>\n        </clef>\n      </attributes>\n`;
             
             const sortedNotes = part.notes.sort((a, b) => {
-                if (Math.abs(a.x - b.x) < 2.0) {
+                // If X is very close, prioritize structural order: Barline -> Clef/Key/Time -> Notes
+                if (Math.abs(a.x - b.x) < 5.0) {
+                    // Priority map (lower = earlier)
+                    const getPriority = (type) => {
+                        if (type === 'barline') return 0;
+                        if (type === 'clef' || type === 'key' || type === 'time') return 1;
+                        if (type === 'symbol') return 2;
+                        return 3; // notes/rests
+                    };
+                    
+                    const pA = getPriority(a.type);
+                    const pB = getPriority(b.type);
+                    
+                    if (pA !== pB) return pA - pB;
+                    
+                    // Same priority? Sort by Y (top to bottom)
                     return b.y - a.y; 
                 }
                 return a.x - b.x;
@@ -92,6 +110,7 @@ export const ExportManager = {
                     else if (note.subtype === 'repeat') barlineXML = '<barline location="right"><bar-style>light-heavy</bar-style><repeat direction="backward"/></barline>';
 
                     if (barlineXML) xml += `      ${barlineXML}\n`;
+                    
                     xml += `    </measure>\n`;
                     measureNum++;
                     xml += `    <measure number="${measureNum}">\n`;
