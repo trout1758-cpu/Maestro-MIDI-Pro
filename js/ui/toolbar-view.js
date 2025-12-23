@@ -51,6 +51,23 @@ export const ToolbarView = {
         
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if(btn) btn.classList.add('active');
+
+        // Logic for Enabling/Disabling Accidentals
+        const accidentals = document.querySelectorAll('.accidental-btn');
+        if (tool === 'note') {
+            accidentals.forEach(b => {
+                b.classList.remove('placeholder', 'opacity-50', 'cursor-not-allowed');
+                b.disabled = false;
+            });
+        } else {
+            // Disable accidentals
+            accidentals.forEach(b => {
+                b.classList.add('placeholder', 'opacity-50', 'cursor-not-allowed');
+                b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200'); // Reset visual state
+                b.disabled = true;
+            });
+            State.activeAccidental = null; // Reset logic state
+        }
     },
 
     toggleDot(btn) {
@@ -65,6 +82,29 @@ export const ToolbarView = {
             btn.classList.remove('text-blue-600');
             btn.classList.remove('bg-blue-50');
             btn.classList.remove('border-blue-200');
+        }
+    },
+
+    toggleAccidental(type, btn) {
+        // Prevent toggling if button is effectively disabled/placeholder
+        // (Though the 'disabled' attribute in DOM should handle click prevention, strict check is safe)
+        if (btn.classList.contains('placeholder')) return;
+
+        if (State.activeAccidental === type) {
+            // Untoggle if clicking same
+            State.activeAccidental = null;
+            btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+        } else {
+            // Activate new one, deactivate others
+            State.activeAccidental = type;
+            
+            // Reset all accidental buttons visual state
+            document.querySelectorAll('.accidental-btn').forEach(b => {
+                b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+            });
+            
+            // Set active visual state
+            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         }
     }
 };
