@@ -46,12 +46,17 @@ export const ToolbarView = {
     },
 
     selectTool(tool, duration, btn) {
-        // If clicking a normal tool, disable tie mode to avoid confusion
-        if (tool !== 'note' && tool !== 'rest') {
-             State.isTieMode = false;
-             const tieBtn = document.querySelector('button[title="Tie"]');
-             if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        }
+        // Disable special modes when selecting a normal tool
+        State.isTieMode = false;
+        State.isDeleteMode = false;
+        
+        // Reset Visuals for special toggles
+        const tieBtn = document.querySelector('button[title="Tie"]');
+        if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+        
+        const delBtn = document.getElementById('delete-mode-btn');
+        if(delBtn) delBtn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
+        if(delBtn) delBtn.classList.add('text-red-600', 'hover:bg-red-50'); // Reset to default style
 
         State.activeTool = tool;
         State.noteDuration = duration;
@@ -102,11 +107,40 @@ export const ToolbarView = {
     },
 
     toggleTie(btn) {
+        // Toggle Tie Mode
         State.isTieMode = !State.isTieMode;
+        
+        // If Tie is on, Delete must be off
         if (State.isTieMode) {
+            State.isDeleteMode = false;
+            const delBtn = document.getElementById('delete-mode-btn');
+            if(delBtn) {
+                delBtn.classList.remove('bg-red-600', 'text-white');
+                delBtn.classList.add('text-red-600');
+            }
+            
             btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         } else {
             btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+        }
+    },
+
+    toggleDelete(btn) {
+        State.isDeleteMode = !State.isDeleteMode;
+        
+        // If Delete is on, Tie must be off
+        if (State.isDeleteMode) {
+            State.isTieMode = false;
+            const tieBtn = document.querySelector('button[title="Tie"]');
+            if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+
+            // Visuals for active delete button (Solid Red)
+            btn.classList.remove('text-red-600', 'hover:bg-red-50');
+            btn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700');
+        } else {
+            // Visuals for inactive delete button (Outline/Text Red)
+            btn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
+            btn.classList.add('text-red-600', 'hover:bg-red-50');
         }
     }
 };
