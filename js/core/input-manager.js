@@ -68,8 +68,6 @@ export const Input = {
         if (!State.activePartId) return;
         const part = State.parts.find(p => p.id === State.activePartId);
         if (part) {
-            // Note: This logic assumes references in notes array are distinct objects.
-            // If copying, we break references, which is good for undo.
             const notesCopy = JSON.parse(JSON.stringify(part.notes));
             this.undoStack.push(notesCopy);
             this.redoStack = []; 
@@ -84,7 +82,7 @@ export const Input = {
             const currentNotes = JSON.parse(JSON.stringify(part.notes));
             this.redoStack.push(currentNotes);
             part.notes = this.undoStack.pop();
-            State.selectedNotes = []; // Clear selection on undo
+            State.selectedNotes = []; 
             NoteRenderer.renderAll();
         }
     },
@@ -96,7 +94,7 @@ export const Input = {
             const currentNotes = JSON.parse(JSON.stringify(part.notes));
             this.undoStack.push(currentNotes);
             part.notes = this.redoStack.pop();
-            State.selectedNotes = []; // Clear selection on redo
+            State.selectedNotes = []; 
             NoteRenderer.renderAll();
         }
     },
@@ -116,7 +114,6 @@ export const Input = {
              e.preventDefault(); this.redo();
         }
         
-        // Delete Key Support
         if (e.key === 'Delete' || e.key === 'Backspace') {
              if (State.selectedNotes.length > 0) {
                  this.saveState();
@@ -177,10 +174,25 @@ export const Input = {
     findTargetNote(x, y) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
-        const THRESHOLD = 20 / PDF.scale;
-        return part.notes.find(n => {
-            return Math.abs(n.x - x) < THRESHOLD && Math.abs(n.y - y) < THRESHOLD;
+        
+        // Increase threshold slightly for easier clicking
+        const THRESHOLD = 30 / PDF.scale;
+        
+        // Find closest within threshold
+        let closest = null;
+        let minDist = Infinity;
+
+        part.notes.forEach(n => {
+            const dx = n.x - x;
+            const dy = n.y - y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < THRESHOLD && dist < minDist) {
+                minDist = dist;
+                closest = n;
+            }
         });
+        
+        return closest;
     },
 
     handleCanvasDown(e) {
@@ -198,35 +210,47 @@ export const Input = {
 
                 // --- SELECTION LOGIC ---
                 if (State.activeTool === 'select') {
-                    // Check if clicking on an EXISTING selection to drag it
-                    const clickedOnSelected = State.selectedNotes.some(n => {
-                        const THRESHOLD = 20 / PDF.scale;
-                        return Math.abs(n.x - x) < THRESHOLD && Math.abs(n.y - y) < THRESHOLD;
-                    });
-
-                    if (clickedOnSelected) {
+                    // 1. Check if clicking on an ALREADY SELECTED item to drag/move it
+                    const target = this.findTargetNote(x, y);
+                    
+                    if (target && State.selectedNotes.includes(target)) {
                         // Start Moving Selection
                         this.isDraggingSelection = true;
                         this.dragStartX = x;
                         this.dragStartY = y;
-                        this.saveState(); // Save before move
+                        this.saveState(); // Save before move starts
                         return; 
                     }
 
-                    // Not dragging existing -> New Selection
+                    // 2. New Selection Action
                     if (State.selectionMode === 'multi') {
+                         // Start Box Selection
                          this.isSelectingBox = true;
                          this.selectStartX = x;
                          this.selectStartY = y;
                          this.selectBox = document.createElement('div');
                          this.selectBox.className = 'selection-box';
+                         // Position initially off-screen or 0 size
+                         this.selectBox.style.left = (x * PDF.scale) + 'px';
+                         this.selectBox.style.top = (y * PDF.scale) + 'px';
                          document.getElementById('overlay-layer').appendChild(this.selectBox);
-                         // Deselect old unless Shift? "Starting a new click/drag should deselect all previously selected"
+                         
+                         // Clear old selection unless shift? For now, clear.
                          State.selectedNotes = [];
                          NoteRenderer.renderAll();
-                    } else if (State.selectionMode === 'single') {
-                         const target = this.findTargetNote(x, y);
-                         State.selectedNotes = target ? [target] : [];
+                    } else {
+                         // Single Select
+                         // If we clicked a target that wasn't selected, select it
+                         if (target) {
+                             State.selectedNotes = [target];
+                             // Also initiate drag for this new single selection immediately
+                             this.isDraggingSelection = true;
+                             this.dragStartX = x;
+                             this.dragStartY = y;
+                             this.saveState();
+                         } else {
+                             State.selectedNotes = [];
+                         }
                          NoteRenderer.renderAll();
                     }
                     return;
@@ -238,6 +262,8 @@ export const Input = {
                     if (target) {
                         this.saveState();
                         part.notes = part.notes.filter(n => n !== target);
+                        // Also remove from selection if needed
+                        State.selectedNotes = State.selectedNotes.filter(n => n !== target);
                         NoteRenderer.renderAll();
                     }
                     return;
@@ -269,11 +295,10 @@ export const Input = {
                     part.notes.push(item);
                     NoteRenderer.drawNote(item.x, item.y, item.size, item.pitchIndex, item.systemId, item.type, item.subtype, item.isDotted, item.accidental);
                 };
-
+                
+                // [Standard placement logic omitted for brevity, assume same as before]
+                // But wait, I must provide full file. Re-pasting standard logic:
                 if (State.activeTool === 'symbol' && zoning) {
-                    // Symbol logic from before
-                    // ... (rest of placement logic essentially same as before, simplified for brevity in reasoning but full in implementation)
-                    // Copying robust placement logic to ensure full file correctness
                     const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
                     let closestDist = Infinity; let closestBar = null;
                     barlines.forEach(bar => { const dist = Math.abs(bar.x - x); if (dist < closestDist) { closestDist = dist; closestBar = bar; } });
@@ -431,7 +456,7 @@ export const Input = {
              
              this.dragStartX = x;
              this.dragStartY = y;
-             NoteRenderer.renderAll(); // Live update
+             NoteRenderer.renderAll(); 
              return;
         }
 
@@ -483,17 +508,13 @@ export const Input = {
                 return; 
             }
             
-            // ... (Standard Ghost Logic from before, assumed maintained) ...
-            // Simplified here to ensure ghost follows:
+            // ... (Standard Ghost Logic) ...
+            // [Re-paste previous ghost logic to ensure it works]
+            // ...
+            
             const rect = PDF.canvas.getBoundingClientRect();
             if (Utils.checkCanvasBounds(e, rect)) {
-                // Since I cannot paste partial code without risking context loss, 
-                // I will assume the previous implementation's ghost logic block is here.
-                // For brevity in this specific response block, I'll invoke the logic via "call" if this were a real system,
-                // but here I must provide the full file.
-                // RE-INJECTING FULL GHOST LOGIC for robustness:
-                
-                // [PASTE PREVIOUS GHOST LOGIC START]
+                // Ghost logic ...
                 if (State.activeTool === 'time') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
@@ -511,7 +532,7 @@ export const Input = {
                     } else { this.ghostNote.classList.remove('visible'); }
                     ToolbarView.updatePitch("-"); return;
                 }
-                // ... (Key, Symbol, Clef, Barline, Note/Rest logic identical to previous turn) ...
+                
                 if (State.activeTool === 'key') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
@@ -529,11 +550,7 @@ export const Input = {
                     } else { this.ghostNote.classList.remove('visible'); }
                     ToolbarView.updatePitch("-"); return;
                 }
-                
-                // (Skipping re-writing every single block to save space, assuming they are preserved if I don't modify them. 
-                // BUT wait, in "File Generation" I must provide COMPLETE file. 
-                // Okay, I will include them to be safe.)
-                
+
                 if (State.activeTool === 'symbol') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
@@ -657,7 +674,6 @@ export const Input = {
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                 }
-                // [PASTE PREVIOUS GHOST LOGIC END]
             } else {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 ToolbarView.updatePitch("-");
