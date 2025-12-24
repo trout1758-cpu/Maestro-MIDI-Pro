@@ -8,6 +8,7 @@ import { NoteRenderer } from './note-renderer.js';
 import { ToolbarView } from '../ui/toolbar-view.js';
 
 export const Input = {
+    // ... [Init props] ...
     viewport: null,
     isSpace: false, 
     isDragging: false, 
@@ -15,13 +16,9 @@ export const Input = {
     lastX: 0, 
     lastY: 0, 
     ghostNote: null,
-    
-    // Tie Dragging State
     isDraggingTie: false,
     tieStartNote: null,
     tempTiePath: null, 
-
-    // Selection State
     isSelectingBox: false,
     selectStartX: 0,
     selectStartY: 0,
@@ -29,8 +26,6 @@ export const Input = {
     isDraggingSelection: false,
     dragStartX: 0,
     dragStartY: 0,
-
-    // Undo/Redo Stacks
     undoStack: [],
     redoStack: [],
 
@@ -174,14 +169,9 @@ export const Input = {
     findTargetNote(x, y) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
-        
-        // Increase threshold slightly for easier clicking
         const THRESHOLD = 30 / PDF.scale;
-        
-        // Find closest within threshold
         let closest = null;
         let minDist = Infinity;
-
         part.notes.forEach(n => {
             const dx = n.x - x;
             const dy = n.y - y;
@@ -191,7 +181,6 @@ export const Input = {
                 closest = n;
             }
         });
-        
         return closest;
     },
 
@@ -208,151 +197,154 @@ export const Input = {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const part = State.parts.find(p => p.id === State.activePartId);
 
-                // --- SELECTION LOGIC ---
-                if (State.activeTool === 'select') {
-                    // 1. Check if clicking on an ALREADY SELECTED item to drag/move it
-                    const target = this.findTargetNote(x, y);
-                    
-                    if (target && State.selectedNotes.includes(target)) {
-                        // Start Moving Selection
-                        this.isDraggingSelection = true;
-                        this.dragStartX = x;
-                        this.dragStartY = y;
-                        this.saveState(); // Save before move starts
-                        return; 
-                    }
-
-                    // 2. New Selection Action
-                    if (State.selectionMode === 'multi') {
-                         // Start Box Selection
-                         this.isSelectingBox = true;
-                         this.selectStartX = x;
-                         this.selectStartY = y;
-                         this.selectBox = document.createElement('div');
-                         this.selectBox.className = 'selection-box';
-                         // Position initially off-screen or 0 size
-                         this.selectBox.style.left = (x * PDF.scale) + 'px';
-                         this.selectBox.style.top = (y * PDF.scale) + 'px';
-                         document.getElementById('overlay-layer').appendChild(this.selectBox);
-                         
-                         // Clear old selection unless shift? For now, clear.
-                         State.selectedNotes = [];
-                         NoteRenderer.renderAll();
-                    } else {
-                         // Single Select
-                         // If we clicked a target that wasn't selected, select it
-                         if (target) {
-                             State.selectedNotes = [target];
-                             // Also initiate drag for this new single selection immediately
-                             this.isDraggingSelection = true;
-                             this.dragStartX = x;
-                             this.dragStartY = y;
-                             this.saveState();
-                         } else {
-                             State.selectedNotes = [];
-                         }
-                         NoteRenderer.renderAll();
-                    }
-                    return;
-                }
-
-                // --- DELETE MODE LOGIC ---
-                if (State.isDeleteMode) {
+                // --- 1. DELETE MODE ---
+                if (State.mode === 'delete') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
                         this.saveState();
                         part.notes = part.notes.filter(n => n !== target);
-                        // Also remove from selection if needed
                         State.selectedNotes = State.selectedNotes.filter(n => n !== target);
                         NoteRenderer.renderAll();
                     }
                     return;
                 }
 
-                // --- TIE MODE LOGIC ---
-                if (State.isTieMode) {
-                    const clickedNote = this.findTargetNote(x, y);
-                    if (clickedNote && clickedNote.type === 'note') {
-                        this.isDraggingTie = true;
-                        this.tieStartNote = clickedNote;
-                        const svgLayer = document.querySelector('#overlay-layer svg');
-                        if (svgLayer) {
-                            this.tempTiePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                            this.tempTiePath.setAttribute("stroke", "#2563eb");
-                            this.tempTiePath.setAttribute("stroke-width", "2");
-                            this.tempTiePath.setAttribute("fill", "none");
-                            this.tempTiePath.setAttribute("stroke-dasharray", "5,5"); 
-                            svgLayer.appendChild(this.tempTiePath);
+                // --- 2. SELECT MODE ---
+                if (State.mode === 'select') {
+                    const target = this.findTargetNote(x, y);
+                    
+                    // Case A: Clicking on an EXISTING selection -> Drag
+                    if (target && State.selectedNotes.includes(target)) {
+                        this.isDraggingSelection = true;
+                        this.dragStartX = x;
+                        this.dragStartY = y;
+                        this.saveState(); 
+                        return;
+                    }
+
+                    // Case B: Clicking a new target
+                    if (target) {
+                        if (this.isShift) {
+                            // Add to selection
+                            State.selectedNotes.push(target);
+                        } else {
+                            // Replace selection
+                            State.selectedNotes = [target];
+                        }
+                        
+                        // Immediately allow dragging this new selection
+                        this.isDraggingSelection = true;
+                        this.dragStartX = x;
+                        this.dragStartY = y;
+                        this.saveState();
+                        NoteRenderer.renderAll();
+                        return;
+                    }
+                    
+                    // Case C: Clicking Empty Space -> Marquee Box
+                    this.isSelectingBox = true;
+                    this.selectStartX = x;
+                    this.selectStartY = y;
+                    this.selectBox = document.createElement('div');
+                    this.selectBox.className = 'selection-box';
+                    this.selectBox.style.left = (x * PDF.scale) + 'px';
+                    this.selectBox.style.top = (y * PDF.scale) + 'px';
+                    this.selectBox.style.width = '0px';
+                    this.selectBox.style.height = '0px';
+                    document.getElementById('overlay-layer').appendChild(this.selectBox);
+                    
+                    // Clear selection if not shifting
+                    if (!this.isShift) {
+                        State.selectedNotes = [];
+                    }
+                    NoteRenderer.renderAll();
+                    return;
+                }
+
+                // --- 3. ADD MODE ---
+                if (State.mode === 'add') {
+                    if (State.isTieMode) {
+                        const clickedNote = this.findTargetNote(x, y);
+                        if (clickedNote && clickedNote.type === 'note') {
+                            this.isDraggingTie = true;
+                            this.tieStartNote = clickedNote;
+                            const svgLayer = document.querySelector('#overlay-layer svg');
+                            if (svgLayer) {
+                                this.tempTiePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                                this.tempTiePath.setAttribute("stroke", "#2563eb");
+                                this.tempTiePath.setAttribute("stroke-width", "2");
+                                this.tempTiePath.setAttribute("fill", "none");
+                                this.tempTiePath.setAttribute("stroke-dasharray", "5,5"); 
+                                svgLayer.appendChild(this.tempTiePath);
+                            }
+                        }
+                        return; 
+                    }
+
+                    const zoning = ZoningEngine.checkZone(y);
+                    const placeItem = (item) => {
+                        this.saveState();
+                        part.notes.push(item);
+                        NoteRenderer.drawNote(item.x, item.y, item.size, item.pitchIndex, item.systemId, item.type, item.subtype, item.isDotted, item.accidental);
+                    };
+
+                    // ... [Placement Logic same as before] ...
+                    if (State.activeTool === 'symbol' && zoning) {
+                        const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
+                        let closestDist = Infinity; let closestBar = null;
+                        barlines.forEach(bar => { const dist = Math.abs(bar.x - x); if (dist < closestDist) { closestDist = dist; closestBar = bar; } });
+                        if (closestBar && closestDist < 20) {
+                            const height = Math.abs(zoning.bottomY - zoning.topY);
+                            const fixedY = zoning.topY - (height * 0.25);
+                            placeItem({ x: closestBar.x, y: fixedY, systemId: zoning.id, type: 'symbol', subtype: State.noteDuration });
+                            return;
                         }
                     }
-                    return; 
-                }
+                    
+                    if (State.activeTool === 'clef') {
+                        if (State.noteDuration === 'c') {
+                            const snap = ZoningEngine.calculateSnap(y);
+                            if(snap) placeItem({ x, y: snap.y, pitchIndex: snap.pitchIndex, systemId: snap.systemId, type: 'clef', subtype: 'c' });
+                            return;
+                        } else if (zoning) {
+                            placeItem({ x, y: zoning.topY, systemId: zoning.id, type: 'clef', subtype: State.noteDuration });
+                            return;
+                        }
+                    }
 
-                // --- NORMAL PLACEMENT LOGIC ---
-                const zoning = ZoningEngine.checkZone(y);
-                const placeItem = (item) => {
-                    this.saveState();
-                    part.notes.push(item);
-                    NoteRenderer.drawNote(item.x, item.y, item.size, item.pitchIndex, item.systemId, item.type, item.subtype, item.isDotted, item.accidental);
-                };
-                
-                // [Standard placement logic omitted for brevity, assume same as before]
-                // But wait, I must provide full file. Re-pasting standard logic:
-                if (State.activeTool === 'symbol' && zoning) {
-                    const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
-                    let closestDist = Infinity; let closestBar = null;
-                    barlines.forEach(bar => { const dist = Math.abs(bar.x - x); if (dist < closestDist) { closestDist = dist; closestBar = bar; } });
-                    if (closestBar && closestDist < 20) {
+                    if (State.activeTool === 'barline' && zoning) {
+                        placeItem({ x, y: zoning.topY, systemId: zoning.id, type: 'barline', subtype: State.noteDuration });
+                        return;
+                    }
+                    
+                    if (State.activeTool === 'time' && zoning) {
                         const height = Math.abs(zoning.bottomY - zoning.topY);
-                        const fixedY = zoning.topY - (height * 0.25);
-                        placeItem({ x: closestBar.x, y: fixedY, systemId: zoning.id, type: 'symbol', subtype: State.noteDuration });
+                        const midY = zoning.topY + (height / 2);
+                        placeItem({ x, y: midY, systemId: zoning.id, type: 'time', subtype: State.noteDuration });
                         return;
                     }
-                }
-                
-                if (State.activeTool === 'clef') {
-                    if (State.noteDuration === 'c') {
-                        const snap = ZoningEngine.calculateSnap(y);
-                        if(snap) placeItem({ x, y: snap.y, pitchIndex: snap.pitchIndex, systemId: snap.systemId, type: 'clef', subtype: 'c' });
-                        return;
-                    } else if (zoning) {
-                        placeItem({ x, y: zoning.topY, systemId: zoning.id, type: 'clef', subtype: State.noteDuration });
+
+                    if (State.activeTool === 'key' && zoning) {
+                        const height = Math.abs(zoning.bottomY - zoning.topY);
+                        const midY = zoning.topY + (height / 2);
+                        placeItem({ x, y: midY, systemId: zoning.id, type: 'key', subtype: State.noteDuration });
                         return;
                     }
-                }
 
-                if (State.activeTool === 'barline' && zoning) {
-                    placeItem({ x, y: zoning.topY, systemId: zoning.id, type: 'barline', subtype: State.noteDuration });
-                    return;
-                }
-                
-                if (State.activeTool === 'time' && zoning) {
-                    const height = Math.abs(zoning.bottomY - zoning.topY);
-                    const midY = zoning.topY + (height / 2);
-                    placeItem({ x, y: midY, systemId: zoning.id, type: 'time', subtype: State.noteDuration });
-                    return;
-                }
-
-                if (State.activeTool === 'key' && zoning) {
-                    const height = Math.abs(zoning.bottomY - zoning.topY);
-                    const midY = zoning.topY + (height / 2);
-                    placeItem({ x, y: midY, systemId: zoning.id, type: 'key', subtype: State.noteDuration });
-                    return;
-                }
-
-                const snap = ZoningEngine.calculateSnap(y);
-                if (snap) {
-                    if (this.isShift) {
-                        const snappedX = this.findSnapX(x, snap.systemId);
-                        if (snappedX !== null) x = snappedX;
+                    const snap = ZoningEngine.calculateSnap(y);
+                    if (snap) {
+                        if (this.isShift) {
+                            const snappedX = this.findSnapX(x, snap.systemId);
+                            if (snappedX !== null) x = snappedX;
+                        }
+                        const system = part.calibration[snap.systemId];
+                        const dist = Math.abs(system.bottomY - system.topY);
+                        const noteSize = dist / 4;
+                        placeItem({ 
+                            x, y: snap.y, size: noteSize, systemId: snap.systemId, pitchIndex: snap.pitchIndex, 
+                            duration: State.noteDuration, type: State.activeTool, isDotted: State.isDotted, accidental: State.activeAccidental 
+                        });
                     }
-                    const system = part.calibration[snap.systemId];
-                    const dist = Math.abs(system.bottomY - system.topY);
-                    const noteSize = dist / 4;
-                    placeItem({ 
-                        x, y: snap.y, size: noteSize, systemId: snap.systemId, pitchIndex: snap.pitchIndex, 
-                        duration: State.noteDuration, type: State.activeTool, isDotted: State.isDotted, accidental: State.activeAccidental 
-                    });
                 }
             }
         }
@@ -364,7 +356,6 @@ export const Input = {
             this.isSelectingBox = false;
             const box = this.selectBox;
             if (box) {
-                // Calculate bounds relative to unscaled PDF coords
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const startX = this.selectStartX;
                 const startY = this.selectStartY;
@@ -376,10 +367,36 @@ export const Input = {
                 
                 const part = State.parts.find(p => p.id === State.activePartId);
                 if (part) {
-                    // Select all notes within bounds
-                    State.selectedNotes = part.notes.filter(n => {
+                    const notesInBox = part.notes.filter(n => {
                         return n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY;
                     });
+                    
+                    // Unified Select Logic:
+                    // If Shift -> Add to selection
+                    // If No Shift -> Replace selection
+                    if (this.isShift) {
+                        // Avoid duplicates
+                        notesInBox.forEach(note => {
+                            if (!State.selectedNotes.includes(note)) {
+                                State.selectedNotes.push(note);
+                            }
+                        });
+                    } else {
+                        // Replace (but note: we already cleared in handleCanvasDown if no shift)
+                        // However, logic says "If click and drag normally... should deselect current... and start selection of new".
+                        // In handleCanvasDown, we cleared State.selectedNotes if !isShift.
+                        // So here we just set it to notesInBox.
+                        if (State.selectedNotes.length === 0) { // Should be empty from down event
+                             State.selectedNotes = notesInBox;
+                        } else {
+                            // If we didn't clear (e.g. shift was held), we added.
+                            // If we cleared, we just assign.
+                            // Since logic was: if !shift -> clear.
+                            // So State.selectedNotes is empty or contains clicked items.
+                            // Wait, if !shift, we cleared. So we just push.
+                            State.selectedNotes = notesInBox;
+                        }
+                    }
                 }
                 
                 box.remove();
@@ -388,7 +405,6 @@ export const Input = {
             }
         }
         
-        // --- MOVE SELECTION END ---
         if (this.isDraggingSelection) {
             this.isDraggingSelection = false;
         }
@@ -424,7 +440,6 @@ export const Input = {
     handleGlobalMove(e) {
         const { x, y } = Utils.getPdfCoords(e, PDF.scale);
 
-        // --- SELECTION BOX DRAG ---
         if (this.isSelectingBox && this.selectBox) {
             const startX = this.selectStartX * PDF.scale;
             const startY = this.selectStartY * PDF.scale;
@@ -443,17 +458,40 @@ export const Input = {
             return;
         }
         
-        // --- MOVE SELECTION DRAG ---
         if (this.isDraggingSelection && State.selectedNotes.length > 0) {
              const dx = x - this.dragStartX;
              const dy = y - this.dragStartY;
-             
-             // Update all selected notes positions
              State.selectedNotes.forEach(n => {
                  n.x += dx;
-                 n.y += dy;
+                 if (n.type === 'note' || n.type === 'rest' || (n.type === 'clef' && n.subtype === 'c')) {
+                     const newY = n.y + dy;
+                     const zone = ZoningEngine.checkZone(newY);
+                     if (zone) {
+                         const height = Math.abs(zone.bottomY - zone.topY);
+                         const stepSize = height / 8;
+                         const relativeY = newY - zone.topY;
+                         const newPitchIndex = Math.round(relativeY / stepSize);
+                         const snappedY = zone.topY + (newPitchIndex * stepSize);
+                         n.y = snappedY;
+                         n.pitchIndex = newPitchIndex;
+                         n.systemId = zone.id;
+                     } else { n.y = newY; }
+                 } else {
+                     const zone = ZoningEngine.checkZone(n.y + dy);
+                     if (zone && zone.id !== n.systemId) {
+                         const height = Math.abs(zone.bottomY - zone.topY);
+                         n.systemId = zone.id;
+                         if (n.type === 'barline') n.y = zone.topY;
+                         if (n.type === 'time' || n.type === 'key') n.y = zone.topY + (height / 2);
+                         if (n.type === 'clef') {
+                             const step = height / 8;
+                             if (n.subtype === 'treble') n.y = zone.topY + (6 * step);
+                             else if (n.subtype === 'bass') n.y = zone.topY + (2 * step);
+                         }
+                         if (n.type === 'symbol') n.y = zone.topY - (height * 0.25);
+                     }
+                 }
              });
-             
              this.dragStartX = x;
              this.dragStartY = y;
              NoteRenderer.renderAll(); 
@@ -473,7 +511,6 @@ export const Input = {
             return;
         }
         
-        // --- TIE DRAGGING ---
         if (this.isDraggingTie && this.tempTiePath && this.tieStartNote) {
             let endX = x * PDF.scale;
             let endY = y * PDF.scale;
@@ -502,19 +539,17 @@ export const Input = {
         }
 
         if (State.activePartId && !this.isSpace) {
-            // Hide ghost if in select/tie/delete mode
-            if (State.isTieMode || State.isDeleteMode || State.activeTool === 'select') {
+            if (State.isTieMode || State.isDeleteMode || State.mode === 'select') {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 return; 
             }
-            
-            // ... (Standard Ghost Logic) ...
-            // [Re-paste previous ghost logic to ensure it works]
-            // ...
-            
+
             const rect = PDF.canvas.getBoundingClientRect();
             if (Utils.checkCanvasBounds(e, rect)) {
-                // Ghost logic ...
+                let { x, y } = Utils.getPdfCoords(e, PDF.scale);
+                
+                // ... [Standard Ghost Logic] ...
+                // Re-implementing standard checks
                 if (State.activeTool === 'time') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
