@@ -47,56 +47,96 @@ export const ToolbarView = {
         }
     },
 
-    selectTool(tool, subtype, btn) {
-        // --- EDIT SELECTED ENTITIES LOGIC ---
-        // If we have selected notes and the user clicks a modification tool (not a select tool), apply change.
-        if (State.selectedNotes.length > 0 && tool !== 'select') {
-             Input.saveState(); // Undo point
-             
-             State.selectedNotes.forEach(note => {
-                 if (tool === 'note' || tool === 'rest') {
-                     if (note.type === 'note' || note.type === 'rest') {
-                         note.type = tool; 
-                         note.duration = subtype; 
+    setAddMode(btn) {
+        State.mode = 'add';
+        State.selectedNotes = []; // Clear selection when entering Add mode
+        NoteRenderer.renderAll();
+
+        this._updateHeaderVisuals(btn);
+        
+        // Ensure control deck looks "active" for placement
+        const deck = document.getElementById('control-deck');
+        deck.classList.remove('selection-mode-active');
+    },
+
+    setSelectMode(btn) {
+        State.mode = 'select';
+        // No specific activeTool needed for generic select, handled in input manager
+        
+        this._updateHeaderVisuals(btn);
+        
+        const deck = document.getElementById('control-deck');
+        deck.classList.add('selection-mode-active');
+    },
+
+    toggleDelete(btn) {
+        if (State.mode === 'delete') {
+            // If toggling off delete, go back to Add
+            this.setAddMode(document.getElementById('add-mode-btn'));
+        } else {
+            State.mode = 'delete';
+            this._updateHeaderVisuals(btn);
+        }
+    },
+
+    _updateHeaderVisuals(activeBtn) {
+        // Reset all header tools
+        document.querySelectorAll('.header-tool-btn').forEach(b => {
+            b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+            b.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700'); 
+            
+            if (b.id === 'delete-mode-btn') {
+                 b.classList.add('text-red-600', 'hover:bg-red-50', 'border-red-200');
+            } else {
+                 b.classList.add('text-gray-600', 'hover:bg-gray-100');
+            }
+        });
+
+        if (activeBtn) {
+            if (activeBtn.id === 'delete-mode-btn') {
+                activeBtn.classList.remove('text-red-600', 'hover:bg-red-50');
+                activeBtn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700');
+            } else {
+                activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-100');
+                activeBtn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+            }
+        }
+    },
+
+    selectTool(tool, duration, btn) {
+        // If clicking a toolbar button, what happens depends on the mode
+        
+        // 1. If in SELECT mode, this acts as a MODIFIER for the selection
+        if (State.mode === 'select') {
+             if (State.selectedNotes.length > 0) {
+                 Input.saveState(); 
+                 State.selectedNotes.forEach(note => {
+                     if (tool === 'note' || tool === 'rest') {
+                         if (note.type === 'note' || note.type === 'rest') {
+                             note.type = tool; 
+                             note.duration = duration; 
+                         }
                      }
-                 }
-             });
-             
-             NoteRenderer.renderAll();
+                 });
+                 NoteRenderer.renderAll();
+             }
+             // Do NOT change active tool or switch modes
              return; 
         }
         
-        // --- NORMAL TOOL SELECTION ---
-        State.isTieMode = false;
-        State.isDeleteMode = false;
-        State.selectionMode = null;
-        
-        if (tool !== 'select') {
-            State.selectedNotes = []; // Clear selection when switching to placement tool
-            NoteRenderer.renderAll();
-        }
-        
-        // Reset Visuals
-        const tieBtn = document.querySelector('button[title="Tie"]');
-        if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        
-        const delBtn = document.getElementById('delete-mode-btn');
-        if(delBtn) {
-             delBtn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
-             delBtn.classList.add('text-red-600', 'hover:bg-red-50');
+        // 2. If in DELETE mode, clicking a tool should probably switch to ADD mode?
+        // Or if in ADD mode, just switch tool.
+        if (State.mode !== 'add') {
+             this.setAddMode(document.getElementById('add-mode-btn'));
         }
 
         State.activeTool = tool;
-        if (tool !== 'select') {
-            State.noteDuration = subtype;
-        } else {
-            State.selectionMode = subtype; // 'single', 'multi'
-        }
+        State.noteDuration = duration;
         
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if(btn) btn.classList.add('active');
 
-        // Logic for Enabling/Disabling Accidentals
+        // Logic for Enabling/Disabling Accidentals (visual only in add mode)
         const accidentals = document.querySelectorAll('.accidental-btn');
         if (tool === 'note') {
             accidentals.forEach(b => {
@@ -114,7 +154,8 @@ export const ToolbarView = {
     },
 
     toggleDot(btn) {
-        if (State.selectedNotes.length > 0) {
+        // Modifier works in both Add and Select modes
+        if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
             const anyDotted = State.selectedNotes.some(n => n.isDotted);
             const newState = !anyDotted; 
@@ -134,7 +175,7 @@ export const ToolbarView = {
     toggleAccidental(type, btn) {
         if (btn.classList.contains('placeholder')) return;
         
-        if (State.selectedNotes.length > 0) {
+        if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
             State.selectedNotes.forEach(n => {
                 if (n.type === 'note') n.accidental = (n.accidental === type) ? null : type;
@@ -158,43 +199,13 @@ export const ToolbarView = {
     toggleTie(btn) {
         State.isTieMode = !State.isTieMode;
         if (State.isTieMode) {
-            State.isDeleteMode = false;
-            const delBtn = document.getElementById('delete-mode-btn');
-            if(delBtn) {
-                delBtn.classList.remove('bg-red-600', 'text-white');
-                delBtn.classList.add('text-red-600');
+            // Force Add mode if enabling Tie? 
+            if (State.mode !== 'add') {
+                 this.setAddMode(document.getElementById('add-mode-btn'));
             }
             btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         } else {
             btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        }
-    },
-
-    toggleDelete(btn) {
-        // If selection active, just delete selected
-        if (State.selectedNotes.length > 0) {
-            Input.saveState();
-            const part = State.parts.find(p => p.id === State.activePartId);
-            if (part) {
-                part.notes = part.notes.filter(n => !State.selectedNotes.includes(n));
-                State.selectedNotes = [];
-                NoteRenderer.renderAll();
-            }
-            return;
-        }
-
-        State.isDeleteMode = !State.isDeleteMode;
-        
-        if (State.isDeleteMode) {
-            State.isTieMode = false;
-            const tieBtn = document.querySelector('button[title="Tie"]');
-            if(tieBtn) tieBtn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-
-            btn.classList.remove('text-red-600', 'hover:bg-red-50');
-            btn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700');
-        } else {
-            btn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700');
-            btn.classList.add('text-red-600', 'hover:bg-red-50');
         }
     }
 };
