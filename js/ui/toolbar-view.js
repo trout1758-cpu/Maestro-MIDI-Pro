@@ -52,13 +52,17 @@ export const ToolbarView = {
         State.selectedNotes = []; 
         NoteRenderer.renderAll();
         this._updateHeaderVisuals(btn);
-        document.getElementById('control-deck').classList.remove('selection-mode-active');
+        
+        const deck = document.getElementById('control-deck');
+        if(deck) deck.classList.remove('selection-mode-active');
     },
 
     setSelectMode(btn) {
         State.mode = 'select';
         this._updateHeaderVisuals(btn);
-        document.getElementById('control-deck').classList.add('selection-mode-active');
+        
+        const deck = document.getElementById('control-deck');
+        if(deck) deck.classList.add('selection-mode-active');
     },
 
     toggleDelete(btn) {
@@ -94,6 +98,7 @@ export const ToolbarView = {
     },
 
     selectTool(tool, duration, btn) {
+        // If in SELECT mode, this acts as a MODIFIER
         if (State.mode === 'select') {
              if (State.selectedNotes.length > 0) {
                  Input.saveState(); 
@@ -110,6 +115,7 @@ export const ToolbarView = {
              return; 
         }
         
+        // If not in Add mode, switch to Add mode
         if (State.mode !== 'add') {
              this.setAddMode(document.getElementById('add-mode-btn'));
         }
@@ -120,6 +126,7 @@ export const ToolbarView = {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if(btn) btn.classList.add('active');
 
+        // Accidentals
         const accidentals = document.querySelectorAll('.accidental-btn');
         if (tool === 'note') {
             accidentals.forEach(b => {
