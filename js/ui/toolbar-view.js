@@ -49,29 +49,20 @@ export const ToolbarView = {
 
     setAddMode(btn) {
         State.mode = 'add';
-        State.selectedNotes = []; // Clear selection when entering Add mode
+        State.selectedNotes = []; 
         NoteRenderer.renderAll();
-
         this._updateHeaderVisuals(btn);
-        
-        // Ensure control deck looks "active" for placement
-        const deck = document.getElementById('control-deck');
-        deck.classList.remove('selection-mode-active');
+        document.getElementById('control-deck').classList.remove('selection-mode-active');
     },
 
     setSelectMode(btn) {
         State.mode = 'select';
-        // No specific activeTool needed for generic select, handled in input manager
-        
         this._updateHeaderVisuals(btn);
-        
-        const deck = document.getElementById('control-deck');
-        deck.classList.add('selection-mode-active');
+        document.getElementById('control-deck').classList.add('selection-mode-active');
     },
 
     toggleDelete(btn) {
         if (State.mode === 'delete') {
-            // If toggling off delete, go back to Add
             this.setAddMode(document.getElementById('add-mode-btn'));
         } else {
             State.mode = 'delete';
@@ -80,7 +71,6 @@ export const ToolbarView = {
     },
 
     _updateHeaderVisuals(activeBtn) {
-        // Reset all header tools
         document.querySelectorAll('.header-tool-btn').forEach(b => {
             b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
             b.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700'); 
@@ -104,9 +94,6 @@ export const ToolbarView = {
     },
 
     selectTool(tool, duration, btn) {
-        // If clicking a toolbar button, what happens depends on the mode
-        
-        // 1. If in SELECT mode, this acts as a MODIFIER for the selection
         if (State.mode === 'select') {
              if (State.selectedNotes.length > 0) {
                  Input.saveState(); 
@@ -120,12 +107,9 @@ export const ToolbarView = {
                  });
                  NoteRenderer.renderAll();
              }
-             // Do NOT change active tool or switch modes
              return; 
         }
         
-        // 2. If in DELETE mode, clicking a tool should probably switch to ADD mode?
-        // Or if in ADD mode, just switch tool.
         if (State.mode !== 'add') {
              this.setAddMode(document.getElementById('add-mode-btn'));
         }
@@ -136,7 +120,6 @@ export const ToolbarView = {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if(btn) btn.classList.add('active');
 
-        // Logic for Enabling/Disabling Accidentals (visual only in add mode)
         const accidentals = document.querySelectorAll('.accidental-btn');
         if (tool === 'note') {
             accidentals.forEach(b => {
@@ -154,7 +137,6 @@ export const ToolbarView = {
     },
 
     toggleDot(btn) {
-        // Modifier works in both Add and Select modes
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
             const anyDotted = State.selectedNotes.some(n => n.isDotted);
@@ -199,7 +181,6 @@ export const ToolbarView = {
     toggleTie(btn) {
         State.isTieMode = !State.isTieMode;
         if (State.isTieMode) {
-            // Force Add mode if enabling Tie? 
             if (State.mode !== 'add') {
                  this.setAddMode(document.getElementById('add-mode-btn'));
             }
