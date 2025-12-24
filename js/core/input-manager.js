@@ -8,7 +8,6 @@ import { NoteRenderer } from './note-renderer.js';
 import { ToolbarView } from '../ui/toolbar-view.js';
 
 export const Input = {
-    // ... [Init props] ...
     viewport: null,
     isSpace: false, 
     isDragging: false, 
@@ -170,18 +169,9 @@ export const Input = {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
         const THRESHOLD = 30 / PDF.scale;
-        let closest = null;
-        let minDist = Infinity;
-        part.notes.forEach(n => {
-            const dx = n.x - x;
-            const dy = n.y - y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < THRESHOLD && dist < minDist) {
-                minDist = dist;
-                closest = n;
-            }
+        return part.notes.find(n => {
+            return Math.abs(n.x - x) < THRESHOLD && Math.abs(n.y - y) < THRESHOLD;
         });
-        return closest;
     },
 
     handleCanvasDown(e) {
@@ -213,7 +203,6 @@ export const Input = {
                 if (State.mode === 'select') {
                     const target = this.findTargetNote(x, y);
                     
-                    // Case A: Clicking on an EXISTING selection -> Drag
                     if (target && State.selectedNotes.includes(target)) {
                         this.isDraggingSelection = true;
                         this.dragStartX = x;
@@ -222,17 +211,12 @@ export const Input = {
                         return;
                     }
 
-                    // Case B: Clicking a new target
                     if (target) {
                         if (this.isShift) {
-                            // Add to selection
                             State.selectedNotes.push(target);
                         } else {
-                            // Replace selection
                             State.selectedNotes = [target];
                         }
-                        
-                        // Immediately allow dragging this new selection
                         this.isDraggingSelection = true;
                         this.dragStartX = x;
                         this.dragStartY = y;
@@ -241,7 +225,6 @@ export const Input = {
                         return;
                     }
                     
-                    // Case C: Clicking Empty Space -> Marquee Box
                     this.isSelectingBox = true;
                     this.selectStartX = x;
                     this.selectStartY = y;
@@ -253,7 +236,6 @@ export const Input = {
                     this.selectBox.style.height = '0px';
                     document.getElementById('overlay-layer').appendChild(this.selectBox);
                     
-                    // Clear selection if not shifting
                     if (!this.isShift) {
                         State.selectedNotes = [];
                     }
@@ -288,7 +270,7 @@ export const Input = {
                         NoteRenderer.drawNote(item.x, item.y, item.size, item.pitchIndex, item.systemId, item.type, item.subtype, item.isDotted, item.accidental);
                     };
 
-                    // ... [Placement Logic same as before] ...
+                    // ... [Placement Logic] ...
                     if (State.activeTool === 'symbol' && zoning) {
                         const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
                         let closestDist = Infinity; let closestBar = null;
@@ -351,7 +333,6 @@ export const Input = {
     },
 
     handleGlobalUp(e) {
-        // --- SELECTION BOX END ---
         if (this.isSelectingBox) {
             this.isSelectingBox = false;
             const box = this.selectBox;
@@ -359,46 +340,26 @@ export const Input = {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const startX = this.selectStartX;
                 const startY = this.selectStartY;
-                
                 const minX = Math.min(startX, x);
                 const maxX = Math.max(startX, x);
                 const minY = Math.min(startY, y);
                 const maxY = Math.max(startY, y);
-                
                 const part = State.parts.find(p => p.id === State.activePartId);
                 if (part) {
                     const notesInBox = part.notes.filter(n => {
                         return n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY;
                     });
                     
-                    // Unified Select Logic:
-                    // If Shift -> Add to selection
-                    // If No Shift -> Replace selection
                     if (this.isShift) {
-                        // Avoid duplicates
                         notesInBox.forEach(note => {
                             if (!State.selectedNotes.includes(note)) {
                                 State.selectedNotes.push(note);
                             }
                         });
                     } else {
-                        // Replace (but note: we already cleared in handleCanvasDown if no shift)
-                        // However, logic says "If click and drag normally... should deselect current... and start selection of new".
-                        // In handleCanvasDown, we cleared State.selectedNotes if !isShift.
-                        // So here we just set it to notesInBox.
-                        if (State.selectedNotes.length === 0) { // Should be empty from down event
-                             State.selectedNotes = notesInBox;
-                        } else {
-                            // If we didn't clear (e.g. shift was held), we added.
-                            // If we cleared, we just assign.
-                            // Since logic was: if !shift -> clear.
-                            // So State.selectedNotes is empty or contains clicked items.
-                            // Wait, if !shift, we cleared. So we just push.
-                            State.selectedNotes = notesInBox;
-                        }
+                        State.selectedNotes = notesInBox;
                     }
                 }
-                
                 box.remove();
                 this.selectBox = null;
                 NoteRenderer.renderAll();
@@ -445,12 +406,10 @@ export const Input = {
             const startY = this.selectStartY * PDF.scale;
             const currX = x * PDF.scale;
             const currY = y * PDF.scale;
-            
             const w = Math.abs(currX - startX);
             const h = Math.abs(currY - startY);
             const l = Math.min(currX, startX);
             const t = Math.min(currY, startY);
-            
             this.selectBox.style.width = w + 'px';
             this.selectBox.style.height = h + 'px';
             this.selectBox.style.left = l + 'px';
