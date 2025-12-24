@@ -115,6 +115,16 @@ body {
     z-index: 50; backdrop-filter: blur(1px);
 }
 
+/* Selection Mode - Visual Indication for Toolbar */
+.selection-mode-active .maestro-btn:not(.placeholder) {
+    border-color: #22c55e; /* Green border to indicate modifier mode */
+    color: #22c55e;
+}
+.selection-mode-active .maestro-btn.active {
+    background-color: #f0fdf4;
+    color: #15803d;
+}
+
 /* --- LAYOUT STATES --- */
 #main-header { display: flex; }
 #calibration-header { display: none; }
