@@ -1,105 +1,101 @@
 import { State } from '../state.js';
-import { UIManager } from '../ui/ui-manager.js';
 import { ModalView } from '../ui/modal-view.js';
 import { PartListView } from '../ui/part-list-view.js';
 import { ToolbarView } from '../ui/toolbar-view.js';
-import { NoteRenderer } from '../core/note-renderer.js';
-import { Input } from '../core/input-manager.js';
-import { PDF } from '../core/pdf-engine.js';
 import { CalibrationController } from './calibration-controller.js';
+import { NoteRenderer } from '../core/note-renderer.js';
 
 export const PartController = {
-    prepareCreate() { 
-        State.editingPartId = null; 
-        UIManager.closeModals(); 
-        ModalView.open('create', null); 
+    prepareCreate() {
+        State.editingPartId = null;
+        ModalView.showPartModal(); // Show "Create New Part"
+        // Close dropdown if open (handled by UI manager mostly, but good to ensure)
+        document.getElementById('parts-menu').classList.remove('show');
     },
-    
-    prepareEdit(id) { 
-        State.editingPartId = id; 
-        const part = State.parts.find(p => p.id === id); 
-        ModalView.open('edit', part); 
+
+    prepareEdit(partId) {
+        const part = State.parts.find(p => p.id === partId);
+        if (part) {
+            State.editingPartId = partId;
+            ModalView.showPartModal(part); // Show "Edit Part" with data
+            document.getElementById('parts-menu').classList.remove('show');
+        }
     },
-    
+
     save() {
-        const { name, instrument, clef } = ModalView.getInputs();
-        const fallbackName = `Part ${State.parts.length + 1}`;
+        const name = document.getElementById('part-name').value;
+        const instrument = document.getElementById('part-instrument').value;
+        const clef = document.getElementById('part-clef').value;
+
+        if (!name) {
+            alert("Part name is required");
+            return;
+        }
 
         if (State.editingPartId) {
+            // Update existing
             const part = State.parts.find(p => p.id === State.editingPartId);
-            part.name = name || fallbackName; 
-            part.instrument = instrument; 
-            part.clef = clef;
+            if (part) {
+                part.name = name;
+                part.instrument = instrument;
+                part.clef = clef;
+            }
         } else {
-            const newPart = { 
-                id: Date.now(), 
-                name: name || fallbackName, 
-                instrument, 
-                clef, 
-                notes: [], 
-                calibration: [] 
+            // Create new
+            const newPart = {
+                id: Date.now().toString(),
+                name: name,
+                instrument: instrument,
+                clef: clef,
+                calibration: [], // Systems
+                notes: []
             };
             State.parts.push(newPart);
-            this.setActive(newPart.id);
+            this.selectPart(newPart.id);
         }
-        UIManager.closeModals();
+
         PartListView.render();
+        ModalView.close();
+        ToolbarView.update();
+        State.editingPartId = null;
     },
 
     saveAndCalibrate() {
-        const { name, instrument, clef } = ModalView.getInputs();
-        const fallbackName = `Part ${State.parts.length + 1}`;
-        
-        let partId = State.editingPartId;
-
-        if (partId) {
-             const part = State.parts.find(p => p.id === partId);
-             part.name = name || fallbackName; part.instrument = instrument; part.clef = clef;
-        } else {
-             const newPart = { 
-                 id: Date.now(), 
-                 name: name || fallbackName, 
-                 instrument, 
-                 clef, 
-                 notes: [], 
-                 calibration: [] 
-             };
-             State.parts.push(newPart);
-             partId = newPart.id;
-             State.editingPartId = partId; 
-             this.setActive(partId); 
-             PartListView.render(); 
+        // Save first, then enter calibration
+        this.save();
+        // If we just created/edited, the active part is set.
+        if (State.activePartId) {
+            CalibrationController.enter();
         }
-        
-        CalibrationController.enter();
     },
 
-    setActive(id) {
-        State.activePartId = id;
-        ToolbarView.update();
+    selectPart(partId) {
+        State.activePartId = partId;
         PartListView.render();
-        
-        // DATA ISOLATION: Re-render notes. If no part active, canvas clears.
-        NoteRenderer.renderAll();
-        
-        // Clear any lingering ghost notes from previous context
-        if (Input.ghostNote) Input.ghostNote.classList.remove('visible');
+        ToolbarView.update();
+        NoteRenderer.renderAll(); // Render notes for this part
     },
 
     confirmDelete() {
-        const part = State.parts.find(p => p.id === State.editingPartId);
-        document.getElementById('delete-part-name').innerText = part.name;
-        document.getElementById('delete-modal').classList.add('show');
+        if (State.editingPartId) {
+            ModalView.close(); // Close part modal
+            // Show delete confirmation
+            const part = State.parts.find(p => p.id === State.editingPartId);
+            if(part) ModalView.showDeleteModal(part);
+        }
     },
 
     delete() {
-        State.parts = State.parts.filter(p => p.id !== State.editingPartId);
-        if (State.activePartId === State.editingPartId) {
-            State.activePartId = null;
+        if (State.editingPartId) {
+            State.parts = State.parts.filter(p => p.id !== State.editingPartId);
+            if (State.activePartId === State.editingPartId) {
+                State.activePartId = null;
+            }
+            State.editingPartId = null;
+            PartListView.render();
             ToolbarView.update();
-            PDF.overlay.innerHTML = ''; // Clear canvas
+            NoteRenderer.renderAll();
+            ModalView.close();
         }
-        UIManager.closeModals();
-        PartListView.render();
     }
 };
