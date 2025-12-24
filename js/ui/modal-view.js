@@ -1,64 +1,66 @@
-import { State } from '../state.js';
-import { UIManager } from './ui-manager.js';
-
 export const ModalView = {
-    toggleMenu(id) { UIManager.toggleMenu(id); },
-    
-    closeAll() { UIManager.closeModals(); },
-
-    open(mode, part) {
+    showPartModal(part = null) {
+        const modal = document.getElementById('part-modal');
         const title = document.getElementById('modal-title');
         const nameInput = document.getElementById('part-name');
         const instInput = document.getElementById('part-instrument');
         const clefInput = document.getElementById('part-clef');
-        const delBtn = document.getElementById('btn-delete-part');
+        const deleteBtn = document.getElementById('btn-delete-part');
 
-        const isEdit = mode === 'edit';
-        title.innerText = isEdit ? "Edit Part" : "Create New Part";
-        nameInput.value = part ? part.name : `Part ${State.parts.length + 1}`;
-        instInput.value = part ? part.instrument : 'Voice';
-        const clef = part ? part.clef : 'treble';
-        this.selectClef(clef);
-        
-        if (isEdit) {
-            delBtn.classList.remove('hidden');
+        if (part) {
+            title.innerText = "Edit Part";
+            nameInput.value = part.name;
+            instInput.value = part.instrument;
+            clefInput.value = part.clef;
+            this.updateClefVisuals(part.clef);
+            deleteBtn.classList.remove('hidden');
         } else {
-            delBtn.classList.add('hidden');
+            title.innerText = "Create New Part";
+            nameInput.value = "";
+            instInput.value = "Voice"; // Default
+            clefInput.value = "treble";
+            this.updateClefVisuals('treble');
+            deleteBtn.classList.add('hidden');
         }
-        
-        this.enableCalibrate();
 
-        document.getElementById('part-modal').classList.add('show');
-        UIManager.closeModals(); 
-        document.getElementById('part-modal').classList.add('show');
+        modal.classList.add('show');
     },
 
-    selectClef(type, btn) {
-        document.getElementById('part-clef').value = type;
+    showDeleteModal(part) {
+        const modal = document.getElementById('delete-modal');
+        document.getElementById('delete-part-name').innerText = part.name;
+        modal.classList.add('show');
+    },
+
+    close() {
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
+    },
+
+    selectClef(clef, btn) {
+        document.getElementById('part-clef').value = clef;
+        this.updateClefVisuals(clef);
+    },
+
+    updateClefVisuals(activeClef) {
         document.querySelectorAll('.clef-btn').forEach(b => {
-            b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-600', 'active');
+            b.classList.remove('active', 'border-blue-500', 'bg-blue-50', 'text-blue-600');
             b.classList.add('text-gray-600');
+            // Check if this button corresponds to the active clef
+            // We assume the onclick handler passed the string 'treble' or 'bass'
+            // But we can't easily check the btn element here without passing it.
+            // So we rely on the button's onclick to pass 'this' and handle styling there?
+            // Better: Re-query them.
         });
-        if (!btn) {
-            const idx = type === 'treble' ? 0 : 1;
-            btn = document.querySelectorAll('.clef-btn')[idx];
-        }
-        btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-600', 'active');
-        btn.classList.remove('text-gray-600');
-    },
-
-    enableCalibrate() {
-        const calBtn = document.getElementById('modal-calibrate-btn');
-        calBtn.disabled = false;
-        calBtn.classList.remove('cursor-not-allowed', 'bg-gray-50', 'text-gray-400');
-        calBtn.classList.add('bg-white', 'text-blue-600', 'border-blue-200', 'hover:bg-blue-50');
-    },
-
-    getInputs() {
-        return {
-            name: document.getElementById('part-name').value,
-            instrument: document.getElementById('part-instrument').value,
-            clef: document.getElementById('part-clef').value
-        };
+        
+        // Simple re-query based on onclick attribute or text content
+        // This is a bit hacky, but standardizes it.
+        // Let's assume the HTML structure is consistent.
+        const buttons = document.querySelectorAll('.clef-btn');
+        buttons.forEach(b => {
+            if (b.getAttribute('onclick').includes(`'${activeClef}'`)) {
+                b.classList.add('active', 'border-blue-500', 'bg-blue-50', 'text-blue-600');
+                b.classList.remove('text-gray-600');
+            }
+        });
     }
 };
