@@ -19,10 +19,7 @@ export const PartListView = {
             
             // Allow clicking to select
             item.onclick = (e) => {
-                // If clicking edit/delete icon, don't select?
-                // Let's make the whole row select, and have an edit button on the right.
                 PartController.selectPart(part.id);
-                // Close menu
                 document.getElementById('parts-menu').classList.remove('show');
             };
 
@@ -34,7 +31,7 @@ export const PartListView = {
             editBtn.innerHTML = '<i data-lucide="edit-3" size="14"></i>';
             editBtn.className = "text-gray-400 hover:text-blue-600 p-1";
             editBtn.onclick = (e) => {
-                e.stopPropagation(); // Prevent selecting
+                e.stopPropagation(); // Prevent selecting when editing
                 PartController.prepareEdit(part.id);
             };
 
@@ -43,7 +40,6 @@ export const PartListView = {
             container.appendChild(item);
         });
 
-        // Re-init icons for the new elements
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
