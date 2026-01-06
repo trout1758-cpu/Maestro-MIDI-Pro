@@ -9,9 +9,6 @@ export const PDF = {
     wrapper: null,
     overlay: null,
     
-    // We no longer rely on a single 'this.canvas'. 
-    // Instead, we manage multiple canvases inside the wrapper.
-    
     initElements() {
         this.wrapper = document.getElementById('canvas-wrapper');
         this.overlay = document.getElementById('overlay-layer');
@@ -28,16 +25,20 @@ export const PDF = {
     async render() {
         if (!this.doc) return;
 
-        // 1. Detach overlay to preserve it (it might contain UI elements temporarily)
-        // actually, NoteRenderer clears it anyway, but it's cleaner to keep the ref.
+        // 1. Detach overlay to preserve it
         this.overlay.remove();
         
-        // 2. Clear the wrapper (removes old canvases)
+        // 2. Clear the wrapper
         this.wrapper.innerHTML = '';
+        
+        // STYLE ADJUSTMENT: 
+        // Make wrapper transparent and remove its shadow so we can apply shadows to individual pages
+        this.wrapper.style.backgroundColor = 'transparent';
+        this.wrapper.style.boxShadow = 'none';
         
         let totalHeight = 0;
         let maxWidth = 0;
-        const PAGE_GAP = 20; // Pixels between pages
+        const PAGE_GAP = 30; // Distinct gap between pages
 
         // 3. Loop through all pages
         for (let pageNum = 1; pageNum <= this.doc.numPages; pageNum++) {
@@ -50,6 +51,10 @@ export const PDF = {
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             canvas.style.display = 'block';
+            
+            // Visual differentiation: White page with shadow
+            canvas.style.backgroundColor = 'white';
+            canvas.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
             
             // Add margin for visual separation (except last page)
             if (pageNum < this.doc.numPages) {
