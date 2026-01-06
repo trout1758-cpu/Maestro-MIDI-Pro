@@ -3,13 +3,16 @@ import { PDF } from './pdf-engine.js';
 
 export const Utils = {
     getPdfCoords(e, scale) {
-        const rect = PDF.canvas.getBoundingClientRect(); 
+        // Updated to use PDF.overlay instead of PDF.canvas
+        // PDF.overlay now spans the full height of all pages combined
+        const rect = PDF.overlay.getBoundingClientRect(); 
         const x = (e.clientX - rect.left) / scale;
         const y = (e.clientY - rect.top) / scale;
         return { x, y };
     },
     
     checkCanvasBounds(e, rect) {
+        // rect passed in should be the overlay's rect
         return e.clientX >= rect.left && e.clientX <= rect.right && 
                e.clientY >= rect.top && e.clientY <= rect.bottom;
     },
