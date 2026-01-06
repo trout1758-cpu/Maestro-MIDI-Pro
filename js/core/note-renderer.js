@@ -114,8 +114,9 @@ export const NoteRenderer = {
             const height = Math.abs(system.bottomY - system.topY);
             const midY = system.topY + (height / 2);
             
-            const boxHeight = (height * 0.8) * PDF.scale;
-            const boxWidth = (boxHeight * 0.5);
+            // UPDATED: Full staff height scaling
+            const boxHeight = height * PDF.scale;
+            const boxWidth = (height * 0.6) * PDF.scale;
 
             el.className += ' placed-time'; // Append to existing classes
             el.style.width = boxWidth + 'px';
@@ -171,18 +172,22 @@ export const NoteRenderer = {
             const height = Math.abs(system.bottomY - system.topY);
             
             let renderY = unscaledY;
+            let boxHeight = (height * 0.9) * PDF.scale;
+            let boxWidth = (height * 0.6) * PDF.scale;
 
             if (subtype === 'treble') {
-                const step = height / 8;
-                renderY = system.topY + (6 * step);
+                // UPDATED Treble Clef Size
+                boxHeight = (height * 1.5) * PDF.scale; 
+                renderY = system.topY + (0.75 * height);
             } else if (subtype === 'bass') {
-                const step = height / 8;
-                renderY = system.topY + (2 * step);
-            } 
+                // UPDATED Bass Clef Size
+                boxHeight = (height * 0.9) * PDF.scale;
+                renderY = system.topY + (0.25 * height);
+            } else if (subtype === 'c') {
+                boxHeight = (height * 0.8) * PDF.scale;
+                boxWidth = (height * 0.5) * PDF.scale;
+            }
             
-            const boxHeight = (height * 0.9) * PDF.scale;
-            const boxWidth = (height * 0.6) * PDF.scale;
-
             el.className += ` placed-clef ${subtype}`;
             el.style.width = boxWidth + 'px';
             el.style.height = boxHeight + 'px';
@@ -209,12 +214,14 @@ export const NoteRenderer = {
 
         let renderY = unscaledY;
         let renderSize = savedSize;
+        let spaceHeight = 20; // fallback
 
         if (systemId !== undefined && pitchIndex !== undefined) {
             const system = part.calibration[systemId]; 
             if (system) {
                 const height = Math.abs(system.bottomY - system.topY);
-                renderSize = height / 4;
+                spaceHeight = height / 4;
+                renderSize = spaceHeight;
                 const stepSize = height / 8;
                 renderY = system.topY + (pitchIndex * stepSize);
             }
@@ -224,31 +231,55 @@ export const NoteRenderer = {
         let classes = type === 'rest' ? 'placed-note rest' : 'placed-note';
         if (isDotted) classes += ' dotted';
         if (accidental) classes += ` accidental-${accidental}`;
-        if (isSelected) classes += ' selected'; // Ensure selected class is added
+        if (isSelected) classes += ' selected'; 
         
         el.className += ' ' + classes; 
         
-        const scaledSize = renderSize * PDF.scale;
-        
-        el.style.height = scaledSize + 'px';
-        el.style.width = (scaledSize * 1.3) + 'px'; 
-        el.style.left = (unscaledX * PDF.scale) + 'px';
-        el.style.top = (renderY * PDF.scale) + 'px';
-        
+        let scaledWidth, scaledHeight;
+
+        // UPDATED: Placed Note Sizing
         if (type === 'rest') {
+             // Match logic in input-manager.js
+             let dur = 4;
+             if (savedSize && subtype) dur = parseInt(subtype); // use subtype as duration for rests if available
+             else if (savedSize && !subtype && State.noteDuration) dur = parseInt(State.noteDuration); // Fallback if freshly placed
+
+             // If reading from saved note, subtype usually stores duration for rests?
+             // In input manager: part.notes.push({ ... subtype: State.noteDuration ... })
+             // So note.subtype holds the duration
+             
+             if (subtype) dur = parseInt(subtype);
+
+             switch(dur) {
+                case 1: case 2: scaledHeight = spaceHeight * 0.5; scaledWidth = spaceHeight * 1.2; break;
+                case 4: scaledHeight = spaceHeight * 3; scaledWidth = spaceHeight * 1.1; break;
+                case 8: scaledHeight = spaceHeight * 2; scaledWidth = spaceHeight * 1.1; break;
+                case 16: scaledHeight = spaceHeight * 2.5; scaledWidth = spaceHeight * 1.5; break;
+                default: scaledHeight = spaceHeight * 2; scaledWidth = spaceHeight;
+             }
+             
+             scaledHeight *= PDF.scale;
+             scaledWidth *= PDF.scale;
+
              el.innerText = ''; 
              el.style.border = '2px solid #ef4444'; 
              el.style.backgroundColor = 'transparent';
              el.style.borderRadius = '0';
              el.style.transform = "translate(-50%, -50%)"; 
              
-             // Override border color if selected
              if (isSelected) {
                  el.style.borderColor = '#22c55e';
              }
         } else {
+             scaledHeight = renderSize * PDF.scale;
+             scaledWidth = (renderSize * 1.3) * PDF.scale;
              el.style.transform = "translate(-50%, -50%) rotate(-15deg)";
         }
+        
+        el.style.height = scaledHeight + 'px';
+        el.style.width = scaledWidth + 'px'; 
+        el.style.left = (unscaledX * PDF.scale) + 'px';
+        el.style.top = (renderY * PDF.scale) + 'px';
         
         PDF.overlay.appendChild(el);
     }
