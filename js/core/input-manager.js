@@ -197,53 +197,46 @@ export const Input = {
 
     handleCanvasDown(e) {
         if (this.isSpace) return;
+        
+        // Use PDF.overlay for bounds check as it represents the full document area
         if (State.isCalibrating) {
             const { y } = Utils.getPdfCoords(e, PDF.scale);
             CalibrationController.handleDown(y);
             return;
         }
         if (State.activePartId) {
-            const rect = PDF.canvas.getBoundingClientRect();
+            const rect = PDF.overlay.getBoundingClientRect(); // UPDATED from PDF.canvas
             if (Utils.checkCanvasBounds(e, rect)) {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const part = State.parts.find(p => p.id === State.activePartId);
 
                 // --- SELECTION LOGIC ---
                 if (State.activeTool === 'select') {
-                    // 1. Check if clicking on an ALREADY SELECTED item to drag/move it
                     const target = this.findTargetNote(x, y);
                     
                     if (target && State.selectedNotes.includes(target)) {
-                        // Start Moving Selection
                         this.isDraggingSelection = true;
                         this.dragStartX = x;
                         this.dragStartY = y;
-                        this.saveState(); // Save before move starts
+                        this.saveState(); 
                         return; 
                     }
 
-                    // 2. New Selection Action
                     if (State.selectionMode === 'multi') {
-                         // Start Box Selection
                          this.isSelectingBox = true;
                          this.selectStartX = x;
                          this.selectStartY = y;
                          this.selectBox = document.createElement('div');
                          this.selectBox.className = 'selection-box';
-                         // Position initially off-screen or 0 size
                          this.selectBox.style.left = (x * PDF.scale) + 'px';
                          this.selectBox.style.top = (y * PDF.scale) + 'px';
                          document.getElementById('overlay-layer').appendChild(this.selectBox);
                          
-                         // Clear old selection unless shift? For now, clear.
                          State.selectedNotes = [];
                          NoteRenderer.renderAll();
                     } else {
-                         // Single Select
-                         // If we clicked a target that wasn't selected, select it
                          if (target) {
                              State.selectedNotes = [target];
-                             // Also initiate drag for this new single selection immediately
                              this.isDraggingSelection = true;
                              this.dragStartX = x;
                              this.dragStartY = y;
@@ -262,7 +255,6 @@ export const Input = {
                     if (target) {
                         this.saveState();
                         part.notes = part.notes.filter(n => n !== target);
-                        // Also remove from selection if needed
                         State.selectedNotes = State.selectedNotes.filter(n => n !== target);
                         NoteRenderer.renderAll();
                     }
@@ -296,8 +288,6 @@ export const Input = {
                     NoteRenderer.drawNote(item.x, item.y, item.size, item.pitchIndex, item.systemId, item.type, item.subtype, item.isDotted, item.accidental);
                 };
                 
-                // [Standard placement logic omitted for brevity, assume same as before]
-                // But wait, I must provide full file. Re-pasting standard logic:
                 if (State.activeTool === 'symbol' && zoning) {
                     const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
                     let closestDist = Infinity; let closestBar = null;
@@ -359,12 +349,10 @@ export const Input = {
     },
 
     handleGlobalUp(e) {
-        // --- SELECTION BOX END ---
         if (this.isSelectingBox) {
             this.isSelectingBox = false;
             const box = this.selectBox;
             if (box) {
-                // Calculate bounds relative to unscaled PDF coords
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const startX = this.selectStartX;
                 const startY = this.selectStartY;
@@ -376,7 +364,6 @@ export const Input = {
                 
                 const part = State.parts.find(p => p.id === State.activePartId);
                 if (part) {
-                    // Select all notes within bounds
                     State.selectedNotes = part.notes.filter(n => {
                         return n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY;
                     });
@@ -388,7 +375,6 @@ export const Input = {
             }
         }
         
-        // --- MOVE SELECTION END ---
         if (this.isDraggingSelection) {
             this.isDraggingSelection = false;
         }
@@ -424,7 +410,6 @@ export const Input = {
     handleGlobalMove(e) {
         const { x, y } = Utils.getPdfCoords(e, PDF.scale);
 
-        // --- SELECTION BOX DRAG ---
         if (this.isSelectingBox && this.selectBox) {
             const startX = this.selectStartX * PDF.scale;
             const startY = this.selectStartY * PDF.scale;
@@ -443,12 +428,10 @@ export const Input = {
             return;
         }
         
-        // --- MOVE SELECTION DRAG ---
         if (this.isDraggingSelection && State.selectedNotes.length > 0) {
              const dx = x - this.dragStartX;
              const dy = y - this.dragStartY;
              
-             // Update all selected notes positions
              State.selectedNotes.forEach(n => {
                  n.x += dx;
                  n.y += dy;
@@ -473,7 +456,6 @@ export const Input = {
             return;
         }
         
-        // --- TIE DRAGGING ---
         if (this.isDraggingTie && this.tempTiePath && this.tieStartNote) {
             let endX = x * PDF.scale;
             let endY = y * PDF.scale;
@@ -493,7 +475,8 @@ export const Input = {
         }
 
         if (State.isCalibrating) {
-            const rect = PDF.canvas.getBoundingClientRect();
+            // Use PDF.overlay here too
+            const rect = PDF.overlay.getBoundingClientRect(); 
             const isOver = Utils.checkCanvasBounds(e, rect);
             if (isOver || CalibrationController.draggingLine) {
                 CalibrationController.handleMove(y);
@@ -502,19 +485,13 @@ export const Input = {
         }
 
         if (State.activePartId && !this.isSpace) {
-            // Hide ghost if in select/tie/delete mode
             if (State.isTieMode || State.isDeleteMode || State.activeTool === 'select') {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 return; 
             }
             
-            // ... (Standard Ghost Logic) ...
-            // [Re-paste previous ghost logic to ensure it works]
-            // ...
-            
-            const rect = PDF.canvas.getBoundingClientRect();
+            const rect = PDF.overlay.getBoundingClientRect(); // UPDATED from PDF.canvas
             if (Utils.checkCanvasBounds(e, rect)) {
-                // Ghost logic ...
                 if (State.activeTool === 'time') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
