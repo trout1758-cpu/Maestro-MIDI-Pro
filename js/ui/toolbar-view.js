@@ -33,7 +33,15 @@ export const ToolbarView = {
             t.classList.add('text-gray-500', 'border-transparent');
         });
         
-        const clickedTab = Array.from(tabs).find(t => t.innerText.toLowerCase().replace('/','').includes(category.replace('/','')));
+        // Robust matching for tab selection
+        const cleanCat = category.replace(/[^a-z0-9]/gi, '').toLowerCase();
+        const clickedTab = Array.from(tabs).find(t => {
+            const cleanTab = t.innerText.replace(/[^a-z0-9]/gi, '').toLowerCase();
+            // Handle specific mismatch for "Notes/Rests" -> "noterest" vs "notesrests"
+            if (cleanCat === 'noterest' && cleanTab.includes('notesrests')) return true;
+            return cleanTab.includes(cleanCat);
+        });
+
         if(clickedTab) {
             clickedTab.classList.remove('text-gray-500', 'border-transparent');
             clickedTab.classList.add('text-blue-600', 'border-blue-600', 'active');
