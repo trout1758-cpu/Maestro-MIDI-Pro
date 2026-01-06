@@ -175,10 +175,8 @@ export const Input = {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
         
-        // Increase threshold slightly for easier clicking
         const THRESHOLD = 30 / PDF.scale;
         
-        // Find closest within threshold
         let closest = null;
         let minDist = Infinity;
 
@@ -198,14 +196,13 @@ export const Input = {
     handleCanvasDown(e) {
         if (this.isSpace) return;
         
-        // Use PDF.overlay for bounds check as it represents the full document area
         if (State.isCalibrating) {
             const { y } = Utils.getPdfCoords(e, PDF.scale);
             CalibrationController.handleDown(y);
             return;
         }
         if (State.activePartId) {
-            const rect = PDF.overlay.getBoundingClientRect(); // UPDATED from PDF.canvas
+            const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const part = State.parts.find(p => p.id === State.activePartId);
@@ -475,7 +472,6 @@ export const Input = {
         }
 
         if (State.isCalibrating) {
-            // Use PDF.overlay here too
             const rect = PDF.overlay.getBoundingClientRect(); 
             const isOver = Utils.checkCanvasBounds(e, rect);
             if (isOver || CalibrationController.draggingLine) {
@@ -490,15 +486,18 @@ export const Input = {
                 return; 
             }
             
-            const rect = PDF.overlay.getBoundingClientRect(); // UPDATED from PDF.canvas
+            const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
                 if (State.activeTool === 'time') {
                     const system = ZoningEngine.checkZone(y);
                     if (system) {
                         const height = Math.abs(system.bottomY - system.topY);
                         const midY = system.topY + (height / 2);
-                        const boxHeight = (height * 0.8) * PDF.scale;
-                        const boxWidth = (boxHeight * 0.5); 
+                        
+                        // UPDATED: Fill full height, tangent to top and bottom
+                        const boxHeight = height * PDF.scale;
+                        const boxWidth = (height * 0.6) * PDF.scale; // Adjustable width
+                        
                         this.ghostNote.className = 'ghost-time visible';
                         this.ghostNote.style.width = boxWidth + 'px';
                         this.ghostNote.style.height = boxHeight + 'px';
@@ -558,8 +557,9 @@ export const Input = {
                             const part = State.parts.find(p => p.id === State.activePartId);
                             const system = part.calibration[snap.systemId];
                             const dist = Math.abs(system.bottomY - system.topY);
-                            const boxHeight = (dist * 0.9) * PDF.scale;
-                            const boxWidth = (dist * 0.6) * PDF.scale;
+                            // C-clef usually smaller, roughly 3 spaces
+                            const boxHeight = (dist * 0.8) * PDF.scale;
+                            const boxWidth = (dist * 0.5) * PDF.scale;
                             this.ghostNote.className = 'ghost-clef c visible';
                             this.ghostNote.innerText = '';
                             this.ghostNote.style.width = boxWidth + 'px';
@@ -572,11 +572,29 @@ export const Input = {
                         const system = ZoningEngine.checkZone(y);
                         if (system) {
                              const height = Math.abs(system.bottomY - system.topY);
-                             const boxHeight = (height * 0.9) * PDF.scale; 
-                             const boxWidth = (height * 0.6) * PDF.scale;
+                             
+                             // UPDATED Clef Sizing
+                             // Treble clef (roughly 7-8 spaces tall visually)
+                             // Bass clef (roughly 3.5-4 spaces)
+                             let boxHeight, boxWidth, fY;
                              const step = height / 8;
-                             const idx = State.noteDuration === 'treble' ? 6 : 2;
-                             const fY = system.topY + (idx * step);
+
+                             if (State.noteDuration === 'treble') {
+                                 boxHeight = (height * 1.5) * PDF.scale; 
+                                 boxWidth = (height * 0.6) * PDF.scale;
+                                 // Anchor logic: 2nd line from bottom (G-line) is center
+                                 // Top line is system.topY
+                                 // G-Line (Line 2) is at topY + 0.75h
+                                 fY = system.topY + (0.75 * height); 
+                             } else {
+                                 // Bass clef
+                                 boxHeight = (height * 0.9) * PDF.scale; 
+                                 boxWidth = (height * 0.6) * PDF.scale;
+                                 // Anchor: 2nd line from top (F-line)
+                                 // F-Line (Line 4) is at topY + 0.25h
+                                 fY = system.topY + (0.25 * height); 
+                             }
+
                              this.ghostNote.className = 'ghost-clef visible';
                              this.ghostNote.innerText = '';
                              this.ghostNote.style.width = boxWidth + 'px';
@@ -617,10 +635,47 @@ export const Input = {
 
                     const part = State.parts.find(p => p.id === State.activePartId);
                     const system = part.calibration[snap.systemId];
-                    const dist = Math.abs(system.bottomY - system.topY);
-                    const noteHeightUnscaled = dist / 4;
-                    const visualHeight = noteHeightUnscaled * PDF.scale;
-                    const visualWidth = visualHeight * 1.3; 
+                    const dist = Math.abs(system.bottomY - system.topY); // Total staff height (4 spaces)
+                    const spaceHeight = dist / 4; 
+                    
+                    const noteSize = spaceHeight; // Standard note head size
+                    let visualWidth, visualHeight;
+
+                    // UPDATED Ghost Sizing Logic
+                    if (State.activeTool === 'rest') {
+                        // Rest sizes based on duration (1, 2, 4, 8, 16)
+                        // Scaling relative to spaceHeight
+                        switch(parseInt(State.noteDuration)) {
+                            case 1: // Whole
+                            case 2: // Half
+                                visualHeight = spaceHeight * 0.5;
+                                visualWidth = spaceHeight * 1.2;
+                                break;
+                            case 4: // Quarter
+                                visualHeight = spaceHeight * 3;
+                                visualWidth = spaceHeight * 1.1;
+                                break;
+                            case 8: // Eighth
+                                visualHeight = spaceHeight * 2;
+                                visualWidth = spaceHeight * 1.1;
+                                break;
+                            case 16: // 16th
+                                visualHeight = spaceHeight * 2.5;
+                                visualWidth = spaceHeight * 1.5;
+                                break;
+                            default:
+                                visualHeight = spaceHeight * 2;
+                                visualWidth = spaceHeight;
+                        }
+                    } else {
+                        // Standard Note
+                        visualHeight = noteSize;
+                        visualWidth = noteSize * 1.3;
+                    }
+
+                    visualHeight *= PDF.scale;
+                    visualWidth *= PDF.scale;
+
                     const dottedClass = State.isDotted ? ' dotted' : '';
                     const accidentalClass = State.activeAccidental ? ` accidental-${State.activeAccidental}` : '';
 
