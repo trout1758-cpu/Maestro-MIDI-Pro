@@ -282,6 +282,15 @@ export const Input = {
                     // Clean up potential old box
                     if(this.selectBox) this.selectBox.remove();
                     
+                    // Handle logic state
+                    if (!this.isShift) {
+                        State.selectedNotes = [];
+                    }
+                    
+                    // RENDER FIRST (clears overlay)
+                    NoteRenderer.renderAll(); 
+
+                    // THEN CREATE BOX (so it stays visible)
                     this.selectBox = document.createElement('div');
                     this.selectBox.className = 'selection-box';
                     this.selectBox.style.left = (x * PDF.scale) + 'px';
@@ -290,10 +299,6 @@ export const Input = {
                     this.selectBox.style.height = '0px';
                     document.getElementById('overlay-layer').appendChild(this.selectBox);
                     
-                    if (!this.isShift) {
-                        State.selectedNotes = [];
-                    }
-                    NoteRenderer.renderAll();
                     return;
                 }
 
@@ -396,8 +401,7 @@ export const Input = {
         // --- BOX SELECTION END ---
         if (this.isSelectingBox) {
             this.isSelectingBox = false;
-            // The logic here is fine, but visually it might have been failing if selectBox was null.
-            // Verified: selectBox is created in handleCanvasDown.
+            
             if (this.selectBox) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const startX = this.selectStartX;
@@ -574,6 +578,8 @@ export const Input = {
                          this.ghostNote.style.left = (x * PDF.scale) + 'px';
                          // Align top of barline with top of system
                          this.ghostNote.style.top = (system.topY * PDF.scale) + 'px';
+                         // REMOVE VERTICAL OFFSET to ensure top-alignment, keep horizontal center
+                         this.ghostNote.style.transform = 'translateX(-50%)'; 
                      }
                      ToolbarView.updatePitch("-"); 
                      return;
@@ -594,6 +600,7 @@ export const Input = {
                             this.ghostNote.style.height = (height * 0.8 * PDF.scale) + 'px';
                             this.ghostNote.style.left = (x * PDF.scale) + 'px';
                             this.ghostNote.style.top = (snap.y * PDF.scale) + 'px';
+                            this.ghostNote.style.transform = 'translate(-50%, -50%)'; // Explicit center
                          }
                      } else {
                          // Treble/Bass fixed
@@ -626,6 +633,7 @@ export const Input = {
                         this.ghostNote.style.left = (x * PDF.scale) + 'px';
                         // Symbols usually float above staff - align with placement logic
                         this.ghostNote.style.top = ((system.topY - (height * 0.25)) * PDF.scale) + 'px'; 
+                        this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     }
                     ToolbarView.updatePitch("-"); 
                     return;
@@ -645,6 +653,7 @@ export const Input = {
                          this.ghostNote.style.height = boxHeight + 'px';
                          this.ghostNote.style.left = (x * PDF.scale) + 'px';
                          this.ghostNote.style.top = (midY * PDF.scale) + 'px';
+                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
                      }
                      ToolbarView.updatePitch("-"); return;
                 }
@@ -686,6 +695,7 @@ export const Input = {
                         this.ghostNote.className = 'ghost-note rest visible' + dottedClass + accidentalClass;
                         this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; 
                         this.ghostNote.style.borderRadius = '0';
+                        this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     } else {
                         this.ghostNote.className = 'ghost-note note-head visible' + dottedClass + accidentalClass;
                         this.ghostNote.style.borderRadius = '50%';
