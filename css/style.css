@@ -35,23 +35,22 @@ body {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* Header Tool Buttons (Add/Select/Delete) */
+/* Momentary visual feedback for Smart Edits */
+.maestro-btn.flash-active {
+    transform: translateY(1px);
+    border-bottom-width: 1px;
+    margin-top: 3px;
+    background-color: #f3f4f6;
+    border-color: #d4d4d8;
+}
+
+/* Header Tool Buttons (Select/Delete) */
 .header-tool-btn {
     transition: all 0.2s;
 }
 .header-tool-btn.active {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     transform: translateY(1px);
-}
-
-/* Visual Feedback for Select Mode */
-.selection-mode-active .maestro-btn:not(.placeholder) {
-    border-color: #86efac; /* Light Green */
-}
-.selection-mode-active .maestro-btn.active {
-    background-color: #f0fdf4;
-    border-color: #22c55e;
-    color: #15803d;
 }
 
 /* Grayed out / Placeholder Tools */
@@ -199,6 +198,7 @@ body.calibration-mode #calibration-footer { display: flex; }
     border: 1px solid #1d4ed8;
     border-radius: 50%;
     transform: translate(-50%, -50%) rotate(-15deg);
+    color: #2563eb; /* Set color for dots */
 }
 
 /* Rest Ghost */
@@ -206,6 +206,7 @@ body.calibration-mode #calibration-footer { display: flex; }
      background-color: transparent;
      border: 2px solid rgba(239, 68, 68, 0.6); 
      display: flex; align-items: center; justify-content: center;
+     color: #ef4444; /* Set color for dots */
 }
 
 /* Barline Ghost */
@@ -267,17 +268,19 @@ body.calibration-mode #calibration-footer { display: flex; }
     position: absolute; background-color: #2563eb; border-radius: 50%;
     transform: translate(-50%, -50%) rotate(-15deg);
     pointer-events: auto; cursor: pointer; z-index: 50;
+    color: #2563eb; /* Ensures pseudo-elements (dots) inherit blue */
 }
-.placed-note:hover { background-color: #1e40af; }
-.placed-note.selected { border: 2px solid #22c55e; background-color: #22c55e; }
+.placed-note:hover { background-color: #1e40af; color: #1e40af; }
+.placed-note.selected { border: 2px solid #22c55e; background-color: #22c55e; color: #22c55e; }
 
 .placed-note.rest {
      background-color: transparent; border: 2px solid #ef4444; border-radius: 0;
      display: flex; align-items: center; justify-content: center;
      transform: translate(-50%, -50%);
+     color: #ef4444; /* Ensures pseudo-elements (dots) inherit red */
 }
-.placed-note.rest:hover { border-color: #b91c1c; }
-.placed-note.rest.selected { border-color: #22c55e; }
+.placed-note.rest:hover { border-color: #b91c1c; color: #b91c1c; }
+.placed-note.rest.selected { border-color: #22c55e; color: #22c55e; }
 
 /* Accidental/Dot offsets */
 .placed-note.dotted::after, .ghost-note.dotted::after {
@@ -287,6 +290,14 @@ body.calibration-mode #calibration-footer { display: flex; }
 .placed-note.rest.dotted::after, .ghost-note.rest.dotted::after {
     content: '.'; position: absolute; font-size: 30px; line-height: 0;
     color: inherit; right: -15px; top: 40%; transform: none;
+}
+/* Accidental positioning */
+.placed-note.accidental-sharp::before, .ghost-note.accidental-sharp::before,
+.placed-note.accidental-flat::before, .ghost-note.accidental-flat::before,
+.placed-note.accidental-natural::before, .ghost-note.accidental-natural::before {
+    content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid #2563eb; background: transparent;
+    left: -20px; top: 50%; transform: translateY(-50%) rotate(15deg); 
 }
 
 /* Barlines */
