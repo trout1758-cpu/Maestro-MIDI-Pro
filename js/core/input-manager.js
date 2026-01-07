@@ -228,9 +228,9 @@ export const Input = {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
 
-        // --- HAIRPINS (Explicitly no ghost) ---
+        // --- HAIRPINS (Explicitly no ghost data needed, handled in drag) ---
         if (State.activeTool === 'hairpin') {
-            return null; 
+            return { type: 'hairpin' }; // Signal it exists but handles differently
         }
 
         // --- DYNAMICS (Text) ---
@@ -645,6 +645,7 @@ export const Input = {
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
 
+                // Dragging Hairpin Visuals
                 if (this.isDraggingHairpin && this.hairpinStart) {
                     this.ghostNote.classList.remove('visible');
                     const svgLayer = document.querySelector('#overlay-layer svg');
@@ -678,7 +679,16 @@ export const Input = {
                     return;
                 }
 
-                // DYNAMICS
+                // Explicit check for hairpin: NO GHOST
+                if (item.type === 'hairpin') {
+                    this.ghostNote.classList.remove('visible');
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
+                // --- GHOST RENDER LOGIC ---
+
+                // Dynamics (Box Border style like Time Sig)
                 if (item.type === 'dynamic') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 1.5) * PDF.scale;
@@ -694,7 +704,7 @@ export const Input = {
                     return;
                 }
                 
-                // BARLINES
+                // ... REST OF THE GHOSTS ...
                 if (item.type === 'barline') {
                     this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
@@ -705,7 +715,6 @@ export const Input = {
                     return;
                 }
 
-                // CLEFS
                 if (item.type === 'clef') {
                     if (item.subtype === 'c') {
                         this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
@@ -730,7 +739,6 @@ export const Input = {
                     return;
                 }
 
-                // SYMBOLS
                 if (item.type === 'symbol') {
                     this.ghostNote.classList.add('visible', 'ghost-symbol');
                     this.ghostNote.innerText = (item.subtype === 'segno') ? '𝄋' : '𝄌';
@@ -742,7 +750,6 @@ export const Input = {
                     return;
                 }
 
-                // TIME / KEY
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
@@ -756,7 +763,6 @@ export const Input = {
                     return;
                 }
 
-                // NOTES & RESTS
                 if (item.type === 'note' || item.type === 'rest') {
                     let visualWidth, visualHeight;
                     const noteSize = item.meta.noteSize;
