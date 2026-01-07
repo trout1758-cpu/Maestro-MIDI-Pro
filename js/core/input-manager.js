@@ -14,6 +14,9 @@ export const Input = {
     isShift: false,
     lastX: 0, 
     lastY: 0, 
+    // New: Track current mouse position for keyboard-triggered updates
+    mouseX: 0,
+    mouseY: 0,
     ghostNote: null,
     
     // Tie Dragging State
@@ -100,8 +103,24 @@ export const Input = {
     },
 
     handleKeyDown(e) {
+        // Prevent shortcuts if user is typing in an input (e.g., Part Name)
+        if (document.activeElement.tagName === 'INPUT') return;
+
         if (e.key === 'Shift') this.isShift = true;
-        if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
+        
+        // --- DOT SHORTCUT (Period Key) ---
+        if (e.key === '.' && !e.repeat) {
+            e.preventDefault();
+            // Find the button in the UI to trigger the visual toggle logic
+            const dotBtn = document.querySelector('button[title="Dot"]');
+            if (dotBtn) {
+                ToolbarView.toggleDot(dotBtn);
+                // Force ghost note update immediately without moving mouse
+                this.handleGlobalMove({ clientX: this.mouseX, clientY: this.mouseY });
+            }
+        }
+
+        if (e.code === 'Space' && !e.repeat) {
             e.preventDefault(); this.isSpace = true;
             if(this.viewport) this.viewport.classList.add('grab-mode');
         }
@@ -128,7 +147,20 @@ export const Input = {
     },
 
     handleKeyUp(e) {
+        if (document.activeElement.tagName === 'INPUT') return;
+
         if (e.key === 'Shift') this.isShift = false;
+        
+        // --- DOT SHORTCUT RELEASE ---
+        if (e.key === '.') {
+            e.preventDefault();
+            const dotBtn = document.querySelector('button[title="Dot"]');
+            if (dotBtn) {
+                ToolbarView.toggleDot(dotBtn); // Toggle back
+                this.handleGlobalMove({ clientX: this.mouseX, clientY: this.mouseY });
+            }
+        }
+
         if (e.code === 'Space') {
             this.isSpace = false; this.isDragging = false;
             if(this.viewport) this.viewport.classList.remove('grab-mode', 'grabbing');
@@ -405,6 +437,10 @@ export const Input = {
     },
 
     handleGlobalMove(e) {
+        // Track mouse position for keyboard shortcuts (like toggling dot)
+        this.mouseX = e.clientX;
+        this.mouseY = e.clientY;
+
         const { x, y } = Utils.getPdfCoords(e, PDF.scale);
 
         if (this.isSelectingBox && this.selectBox) {
