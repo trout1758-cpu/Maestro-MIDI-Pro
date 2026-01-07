@@ -4,13 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Maestro Phase 5: Modular</title>
-    
     <!-- Dependencies -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,700;1,300&family=Noto+Music&display=swap" rel="stylesheet">
-    
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -18,7 +16,6 @@
 
     <!-- MAIN HEADER -->
     <header id="main-header" class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 z-20 shadow-sm relative">
-        <!-- Left: Parts -->
         <div class="flex items-center">
             <button id="parts-dropdown-btn" onclick="UIManager.toggleMenu('parts-menu')" class="flex items-center gap-3 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors bg-white">
                 <div class="bg-black text-white p-1 rounded"><i data-lucide="layers" size="18"></i></div>
@@ -32,17 +29,11 @@
                 </button>
             </div>
         </div>
-
-        <!-- Center: Tools & Edit Controls -->
         <div class="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
-            <!-- Unified Select Button (Toggle) -->
             <button id="select-mode-btn" onclick="ToolbarView.toggleSelectMode(this)" class="header-tool-btn p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Toggle Select Mode">
                 <i data-lucide="mouse-pointer-2" size="14"></i>
             </button>
-            
             <div class="w-px h-6 bg-gray-300 mx-1"></div>
-
-            <!-- Edit Controls -->
             <button onclick="Input.undo()" class="p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Undo (Ctrl+Z)">
                 <i data-lucide="rotate-ccw" size="14"></i>
             </button>
@@ -53,14 +44,11 @@
                 <i data-lucide="trash-2" size="14"></i>
             </button>
         </div>
-        
-        <!-- Right Controls: Upload & Export -->
         <div class="flex items-center gap-3">
              <button onclick="FileManager.triggerUpload()" class="px-3 py-2 text-sm font-semibold hover:bg-gray-100 rounded shadow-sm border border-gray-200 transition-all flex gap-2 cursor-pointer bg-white text-slate-700">
                 <i data-lucide="upload" size="16"></i> Upload PDF
             </button>
             <input type="file" id="file-upload" accept="application/pdf" class="hidden">
-            
             <button onclick="ExportManager.exportXML()" class="bg-slate-900 text-white px-5 py-2 rounded shadow hover:bg-slate-800 font-semibold text-sm flex items-center gap-2">
                 Export <i data-lucide="arrow-right" size="16"></i>
             </button>
@@ -76,13 +64,11 @@
                 <p class="text-xs text-slate-400">Add systems and drag lines to match the staff.</p>
             </div>
         </div>
-        
         <div class="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-600">
             <button onclick="PDF.adjustZoom(-0.1)" class="p-1 text-slate-300 hover:text-white"><i data-lucide="minus-circle" size="16"></i></button>
             <span class="text-xs font-mono w-12 text-center text-slate-300 zoom-display">100%</span>
             <button onclick="PDF.adjustZoom(0.1)" class="p-1 text-slate-300 hover:text-white"><i data-lucide="plus-circle" size="16"></i></button>
         </div>
-
         <div class="flex items-center gap-3">
              <button onclick="CalibrationController.addSystem()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold text-sm shadow-sm flex items-center gap-2">
                 <i data-lucide="plus-circle" size="16"></i> Add System
@@ -105,7 +91,6 @@
 
     <!-- CONTROL DECK -->
     <section id="control-deck" class="bg-white border-b border-gray-200 shadow-sm z-10 flex flex-col toolbar-disabled transition-all duration-300">
-        <!-- TABS (Select Removed) -->
         <div class="flex items-center justify-center gap-1 pt-1 border-b border-gray-100 overflow-x-auto">
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('measure')">Measure</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('signature')">Signature</button>
@@ -115,7 +100,6 @@
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('articulation')">Articulation</button>
         </div>
 
-        <!-- TOOL CONTAINER -->
         <div class="h-28 bg-gray-50 flex items-center justify-center opacity-50 relative px-6 transition-opacity duration-200" id="tool-container">
             
             <!-- MEASURE -->
@@ -183,13 +167,11 @@
 
             <!-- NOTES/RESTS -->
             <div id="tools-noterest" class="flex gap-6 items-center justify-center w-full">
-                <!-- Accidentals (Left) -->
                 <div class="flex gap-2">
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Sharp" onclick="ToolbarView.toggleAccidental('sharp', this)">♯</button>
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Natural" onclick="ToolbarView.toggleAccidental('natural', this)">♮</button>
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Flat" onclick="ToolbarView.toggleAccidental('flat', this)">♭</button>
                 </div>
-                <!-- Notes/Rests Grid (Center) -->
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2">
                         <button class="maestro-btn note-grid-btn tool-btn" onclick="ToolbarView.selectTool('note', 1, this)">𝅝</button>
@@ -206,13 +188,12 @@
                         <button class="maestro-btn note-grid-btn tool-btn" onclick="ToolbarView.selectTool('rest', 16, this)">𝄿</button>
                     </div>
                 </div>
-                <!-- Dot (Right) -->
                 <div>
                     <button class="maestro-btn note-grid-btn text-4xl pb-4" title="Dot" onclick="ToolbarView.toggleDot(this)">.</button>
                 </div>
             </div>
 
-            <!-- RHYTHM/DURATION -->
+            <!-- RHYTHM -->
             <div id="tools-rhythm" class="flex items-center justify-center w-full gap-16 hidden">
                 <button class="maestro-btn placeholder double-width-btn" title="Tempo Marking">Tempo</button>
                 <div class="flex flex-col gap-2">
@@ -252,31 +233,31 @@
                 </div>
             </div>
 
-            <!-- DYNAMICS -->
+            <!-- DYNAMICS (Active) -->
             <div id="tools-dynamics" class="flex gap-6 items-center justify-center w-full hidden">
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2 items-center">
-                         <button class="maestro-btn placeholder note-grid-btn" title="mf">𝆐𝆑</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="f">𝆑</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="ff">𝆑𝆑</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="fff">𝆑𝆑𝆑</button>
-                         <button class="maestro-btn placeholder double-width-btn flex items-center justify-center overflow-hidden" title="Crescendo">
+                         <button class="maestro-btn note-grid-btn tool-btn" title="mf" onclick="ToolbarView.selectTool('dynamic', 'mf', this)">𝆐𝆑</button>
+                         <button class="maestro-btn note-grid-btn tool-btn" title="f" onclick="ToolbarView.selectTool('dynamic', 'f', this)">𝆑</button>
+                         <button class="maestro-btn note-grid-btn tool-btn" title="ff" onclick="ToolbarView.selectTool('dynamic', 'ff', this)">𝆑𝆑</button>
+                         <button class="maestro-btn note-grid-btn tool-btn" title="fff" onclick="ToolbarView.selectTool('dynamic', 'fff', this)">𝆑𝆑𝆑</button>
+                         <button class="maestro-btn double-width-btn tool-btn flex items-center justify-center overflow-hidden" title="Crescendo" onclick="ToolbarView.selectTool('hairpin', 'crescendo', this)">
                             <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&lt;</span>
                          </button>
                     </div>
                     <div class="flex gap-2 items-center">
-                         <button class="maestro-btn placeholder note-grid-btn" title="mp">𝆐𝆏</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="p">𝆏</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="pp">𝆏𝆏</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="ppp">𝆏𝆏𝆏</button>
-                         <button class="maestro-btn placeholder double-width-btn flex items-center justify-center overflow-hidden" title="Diminuendo">
+                         <button class="maestro-btn note-grid-btn tool-btn" title="mp" onclick="ToolbarView.selectTool('dynamic', 'mp', this)">𝆐𝆏</button>
+                         <button class="maestro-btn note-grid-btn tool-btn" title="p" onclick="ToolbarView.selectTool('dynamic', 'p', this)">𝆏</button>
+                         <button class="maestro-btn note-grid-btn tool-btn" title="pp" onclick="ToolbarView.selectTool('dynamic', 'pp', this)">𝆏𝆏</button>
+                         <button class="maestro-btn note-grid-btn tool-btn" title="ppp" onclick="ToolbarView.selectTool('dynamic', 'ppp', this)">𝆏𝆏𝆏</button>
+                         <button class="maestro-btn double-width-btn tool-btn flex items-center justify-center overflow-hidden" title="Diminuendo" onclick="ToolbarView.selectTool('hairpin', 'diminuendo', this)">
                             <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&gt;</span>
                          </button>
                     </div>
                 </div>
                 <div class="w-px h-20 bg-gray-300"></div>
                 <div>
-                    <button class="maestro-btn placeholder note-grid-btn text-sm italic font-serif" title="sfz">sfz</button>
+                    <button class="maestro-btn note-grid-btn text-sm italic font-serif tool-btn" title="sfz" onclick="ToolbarView.selectTool('dynamic', 'sfz', this)">sfz</button>
                 </div>
             </div>
 
@@ -319,9 +300,7 @@
     <main id="viewport" class="p-12 flex justify-center">
         <div id="canvas-wrapper">
             <canvas id="pdf-render"></canvas>
-            <div id="overlay-layer">
-                <!-- Notes will be injected here -->
-            </div>
+            <div id="overlay-layer"></div>
         </div>
     </main>
 
@@ -389,7 +368,6 @@
         </div>
     </div>
 
-    <!-- MAIN SCRIPT ENTRY -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
