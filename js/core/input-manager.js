@@ -228,7 +228,7 @@ export const Input = {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
 
-        // --- HAIRPINS (Explicitly no ghost data needed, handled in drag) ---
+        // --- HAIRPINS (Explicitly no ghost) ---
         if (State.activeTool === 'hairpin') {
             return { type: 'hairpin' }; // Signal it exists but handles differently
         }
@@ -236,10 +236,12 @@ export const Input = {
         // --- DYNAMICS (Text) ---
         // Free-floating but associated with a zone
         if (State.activeTool === 'dynamic') {
+             // Find closest system to associate with
              let closestSystem = null;
              let minDistance = Infinity;
              
              part.calibration.forEach((sys, idx) => {
+                 // Check distance to the vertical center of the system
                  const sysMid = (sys.topY + sys.bottomY) / 2;
                  const dist = Math.abs(y - sysMid);
                  if (dist < minDistance) {
@@ -571,9 +573,7 @@ export const Input = {
                          n.y = snappedY;
                          n.pitchIndex = newPitchIndex;
                          n.systemId = zone.id;
-                     } else {
-                         n.y = newY; 
-                     }
+                     } else { n.y = newY; }
                  } 
                  else if (n.type === 'dynamic' || n.type === 'hairpin') {
                      n.y += dy;
@@ -645,7 +645,6 @@ export const Input = {
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
 
-                // Dragging Hairpin Visuals
                 if (this.isDraggingHairpin && this.hairpinStart) {
                     this.ghostNote.classList.remove('visible');
                     const svgLayer = document.querySelector('#overlay-layer svg');
@@ -816,3 +815,5 @@ export const Input = {
         }
     }
 };
+
+
