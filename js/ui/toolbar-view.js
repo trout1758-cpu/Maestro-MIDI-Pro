@@ -33,7 +33,6 @@ export const ToolbarView = {
             t.classList.add('text-gray-500', 'border-transparent');
         });
         
-        // Robust matching for tab selection
         const cleanCat = category.replace(/[^a-z0-9]/gi, '').toLowerCase();
         const clickedTab = Array.from(tabs).find(t => {
             const cleanTab = t.innerText.replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -54,28 +53,21 @@ export const ToolbarView = {
         }
     },
 
-    // --- NEW MODE SWITCHING LOGIC ---
-
     setAddMode(btn) {
         State.mode = 'add';
         State.selectedNotes = []; 
         NoteRenderer.renderAll();
         this._updateHeaderVisuals(btn);
-        
-        const deck = document.getElementById('control-deck');
-        if(deck) deck.classList.remove('selection-mode-active');
+        document.getElementById('control-deck').classList.remove('selection-mode-active');
     },
 
     setSelectMode(btn) {
         State.mode = 'select';
         this._updateHeaderVisuals(btn);
-        
-        const deck = document.getElementById('control-deck');
-        if(deck) deck.classList.add('selection-mode-active');
+        document.getElementById('control-deck').classList.add('selection-mode-active');
     },
 
     toggleDelete(btn) {
-        // If items are selected, delete them instantly without changing mode
         if (State.selectedNotes.length > 0) {
             Input.saveState();
             const part = State.parts.find(p => p.id === State.activePartId);
@@ -121,26 +113,41 @@ export const ToolbarView = {
 
     selectTool(tool, subtype, btn) {
         // --- SMART EDIT LOGIC ---
-        // If in SELECT mode, clicking a tool MODIFIES the selection instead of changing the placement tool
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
              Input.saveState(); 
+             let modificationsMade = false;
              
              State.selectedNotes.forEach(note => {
-                 // Only modify if types are compatible (e.g. changing note duration)
-                 if (tool === 'note' || tool === 'rest') {
-                     if (note.type === 'note' || note.type === 'rest') {
-                         note.type = tool; 
-                         note.duration = subtype; 
+                 let isCompatible = false;
+                 
+                 // Type Compatibility Logic
+                 if ((note.type === 'note' || note.type === 'rest') && (tool === 'note' || tool === 'rest')) {
+                     isCompatible = true;
+                 } else if (note.type === tool) {
+                     // Barlines to Barlines, Clefs to Clefs, Symbols to Symbols
+                     isCompatible = true;
+                 }
+
+                 if (isCompatible) {
+                     note.type = tool; 
+                     note.duration = subtype; 
+                     
+                     // If switching to non-note, clear note-specific props
+                     if (tool !== 'note' && tool !== 'rest') {
+                         delete note.isDotted;
+                         delete note.accidental;
                      }
+                     modificationsMade = true;
                  }
              });
              
-             NoteRenderer.renderAll();
+             if (modificationsMade) {
+                 NoteRenderer.renderAll();
+             }
              return; 
         }
         
         // --- STANDARD TOOL SELECTION ---
-        // If we click a tool, we usually want to be in Add Mode
         if (State.mode !== 'add') {
             this.setAddMode(document.getElementById('add-mode-btn'));
         }
@@ -153,7 +160,7 @@ export const ToolbarView = {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if(btn) btn.classList.add('active');
 
-        // Logic for Enabling/Disabling Accidentals
+        // Toggle Accidentals State
         const accidentals = document.querySelectorAll('.accidental-btn');
         if (tool === 'note') {
             accidentals.forEach(b => {
@@ -171,13 +178,18 @@ export const ToolbarView = {
     },
 
     toggleDot(btn) {
-        // Smart Edit: Toggle dot on selected notes
+        // Smart Edit: Dot
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
-            const anyDotted = State.selectedNotes.some(n => n.isDotted);
-            const newState = !anyDotted; 
-            State.selectedNotes.forEach(n => n.isDotted = newState);
-            NoteRenderer.renderAll();
+            let changed = false;
+            State.selectedNotes.forEach(n => {
+                // Only notes/rests can be dotted
+                if (n.type === 'note' || n.type === 'rest') {
+                    n.isDotted = !n.isDotted;
+                    changed = true;
+                }
+            });
+            if(changed) NoteRenderer.renderAll();
             return;
         }
 
@@ -192,13 +204,17 @@ export const ToolbarView = {
     toggleAccidental(type, btn) {
         if (btn.classList.contains('placeholder')) return;
         
-        // Smart Edit: Toggle accidental on selected notes
+        // Smart Edit: Accidental
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
+            let changed = false;
             State.selectedNotes.forEach(n => {
-                if (n.type === 'note') n.accidental = (n.accidental === type) ? null : type;
+                if (n.type === 'note') {
+                    n.accidental = (n.accidental === type) ? null : type;
+                    changed = true;
+                }
             });
-            NoteRenderer.renderAll();
+            if(changed) NoteRenderer.renderAll();
             return;
         }
 
@@ -217,7 +233,6 @@ export const ToolbarView = {
     toggleTie(btn) {
         State.isTieMode = !State.isTieMode;
         if (State.isTieMode) {
-            // Tie is an additive tool, switch to Add mode
             if (State.mode !== 'add') {
                  this.setAddMode(document.getElementById('add-mode-btn'));
             }
