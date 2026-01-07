@@ -35,6 +35,25 @@ body {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
 
+/* Header Tool Buttons (Add/Select/Delete) */
+.header-tool-btn {
+    transition: all 0.2s;
+}
+.header-tool-btn.active {
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    transform: translateY(1px);
+}
+
+/* Visual Feedback for Select Mode */
+.selection-mode-active .maestro-btn:not(.placeholder) {
+    border-color: #86efac; /* Light Green */
+}
+.selection-mode-active .maestro-btn.active {
+    background-color: #f0fdf4;
+    border-color: #22c55e;
+    color: #15803d;
+}
+
 /* Grayed out / Placeholder Tools */
 .maestro-btn.placeholder {
     opacity: 0.8;
