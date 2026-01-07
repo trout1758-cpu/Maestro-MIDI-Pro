@@ -106,7 +106,6 @@ export const Input = {
 
         if (e.key === 'Shift') this.isShift = true;
         
-        // Dot Shortcut
         if (e.key === '.' && !e.repeat) {
             e.preventDefault();
             const dotBtn = document.querySelector('button[title="Dot"]');
@@ -129,7 +128,6 @@ export const Input = {
              e.preventDefault(); this.redo();
         }
         
-        // Delete Shortcut
         if (e.key === 'Delete' || e.key === 'Backspace') {
              if (State.selectedNotes.length > 0) {
                  this.saveState();
@@ -235,7 +233,7 @@ export const Input = {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const part = State.parts.find(p => p.id === State.activePartId);
 
-                // --- DELETE MODE ---
+                // DELETE MODE
                 if (State.mode === 'delete') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
@@ -247,13 +245,11 @@ export const Input = {
                     return;
                 }
 
-                // --- SELECT MODE ---
+                // SELECT MODE
                 if (State.mode === 'select') {
                     const target = this.findTargetNote(x, y);
                     
-                    // Case A: Clicked on a note
                     if (target) {
-                        // If already selected, we might be starting a drag
                         if (State.selectedNotes.includes(target)) {
                             this.isDraggingSelection = true;
                             this.dragStartX = x;
@@ -262,7 +258,6 @@ export const Input = {
                             return;
                         }
 
-                        // If not selected, select it (handle Shift)
                         if (this.isShift) {
                             State.selectedNotes.push(target);
                         } else {
@@ -277,10 +272,14 @@ export const Input = {
                         return;
                     }
                     
-                    // Case B: Clicked on empty space -> Start Box Selection
+                    // Box Selection Start
                     this.isSelectingBox = true;
                     this.selectStartX = x;
                     this.selectStartY = y;
+                    
+                    // Ensure previous box is gone
+                    if(this.selectBox) this.selectBox.remove();
+                    
                     this.selectBox = document.createElement('div');
                     this.selectBox.className = 'selection-box';
                     this.selectBox.style.left = (x * PDF.scale) + 'px';
@@ -296,9 +295,8 @@ export const Input = {
                     return;
                 }
 
-                // --- ADD MODE ---
+                // ADD MODE
                 if (State.mode === 'add') {
-                    // TIE TOOL OVERRIDE
                     if (State.isTieMode) {
                         const clickedNote = this.findTargetNote(x, y);
                         if (clickedNote && clickedNote.type === 'note') {
@@ -317,7 +315,6 @@ export const Input = {
                         return; 
                     }
 
-                    // NORMAL PLACEMENT
                     const zoning = ZoningEngine.checkZone(y);
                     const placeItem = (item) => {
                         this.saveState();
@@ -387,11 +384,9 @@ export const Input = {
     },
 
     handleGlobalUp(e) {
-        // --- BOX SELECTION END ---
         if (this.isSelectingBox) {
             this.isSelectingBox = false;
-            const box = this.selectBox;
-            if (box) {
+            if (this.selectBox) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const startX = this.selectStartX;
                 const startY = this.selectStartY;
@@ -407,7 +402,6 @@ export const Input = {
                         return n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY;
                     });
 
-                    // Add to existing if shift, else replace
                     if (this.isShift) {
                         notesInBox.forEach(n => {
                             if (!State.selectedNotes.includes(n)) State.selectedNotes.push(n);
@@ -417,7 +411,7 @@ export const Input = {
                     }
                 }
                 
-                box.remove();
+                this.selectBox.remove();
                 this.selectBox = null;
                 NoteRenderer.renderAll();
             }
@@ -458,10 +452,9 @@ export const Input = {
     handleGlobalMove(e) {
         this.mouseX = e.clientX;
         this.mouseY = e.clientY;
-
         const { x, y } = Utils.getPdfCoords(e, PDF.scale);
 
-        // --- MARQUEE RESIZE ---
+        // --- BOX RESIZE ---
         if (this.isSelectingBox && this.selectBox) {
             const startX = this.selectStartX * PDF.scale;
             const startY = this.selectStartY * PDF.scale;
@@ -487,8 +480,6 @@ export const Input = {
              
              State.selectedNotes.forEach(n => {
                  n.x += dx;
-                 
-                 // Handle Vertical Snapping for dragged notes
                  if (n.type === 'note' || n.type === 'rest' || (n.type === 'clef' && n.subtype === 'c')) {
                      const newY = n.y + dy;
                      const zone = ZoningEngine.checkZone(newY);
@@ -502,10 +493,9 @@ export const Input = {
                          n.pitchIndex = newPitchIndex;
                          n.systemId = zone.id;
                      } else {
-                         n.y = newY; // Free drag if out of bounds (fallback)
+                         n.y = newY; 
                      }
                  } else {
-                     // For non-pitched items, just snap to system Y
                      const zone = ZoningEngine.checkZone(n.y + dy);
                      if (zone && zone.id !== n.systemId) {
                          const height = Math.abs(zone.bottomY - zone.topY);
@@ -534,36 +524,8 @@ export const Input = {
             if(this.ghostNote) this.ghostNote.classList.remove('visible');
             return;
         }
-        
-        // --- TIE DRAGGING ---
-        if (this.isDraggingTie && this.tempTiePath && this.tieStartNote) {
-            let endX = x * PDF.scale;
-            let endY = y * PDF.scale;
-            const target = this.findTargetNote(x, y);
-            if (target && target.pitchIndex === this.tieStartNote.pitchIndex) {
-                endX = target.x * PDF.scale;
-                endY = target.y * PDF.scale;
-            }
-            const startX = this.tieStartNote.x * PDF.scale;
-            const startY = this.tieStartNote.y * PDF.scale;
-            const isStemDown = this.tieStartNote.pitchIndex <= 4; 
-            const curveDir = isStemDown ? -1 : 1;
-            const cx = (startX + endX) / 2;
-            const cy = ((startY + endY) / 2) + (15 * curveDir * PDF.scale); 
-            this.tempTiePath.setAttribute("d", `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`);
-            return; 
-        }
 
-        if (State.isCalibrating) {
-            const rect = PDF.overlay.getBoundingClientRect(); 
-            const isOver = Utils.checkCanvasBounds(e, rect);
-            if (isOver || CalibrationController.draggingLine) {
-                CalibrationController.handleMove(y);
-            }
-            return;
-        }
-
-        if (State.activePartId && !this.isSpace) {
+        if (State.activePartId && !this.isSpace && !State.isCalibrating) {
             if (State.isTieMode || State.mode === 'delete' || State.mode === 'select') {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 return; 
@@ -571,29 +533,96 @@ export const Input = {
             
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
-                // ... (Ghost note logic remains identical to main branch, abbreviated for clarity)
-                // Standard visual updates for placement
                 
-                if (State.activeTool === 'time') {
+                // Clear all classes first
+                this.ghostNote.className = 'ghost-note'; 
+                this.ghostNote.innerText = '';
+                this.ghostNote.style = '';
+                
+                // --- 1. BARLINES ---
+                if (State.activeTool === 'barline') {
+                     const system = ZoningEngine.checkZone(y);
+                     if(system) {
+                         const height = Math.abs(system.bottomY - system.topY);
+                         this.ghostNote.classList.add('visible', 'ghost-barline', State.noteDuration); // 'single', 'double', etc.
+                         this.ghostNote.style.height = (height * PDF.scale) + 'px';
+                         this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                         this.ghostNote.style.top = (system.topY * PDF.scale) + 'px';
+                     }
+                     ToolbarView.updatePitch("-"); 
+                     return;
+                }
+
+                // --- 2. CLEFS ---
+                if (State.activeTool === 'clef') {
+                     if (State.noteDuration === 'c') {
+                         // C-Clef moves like a note
+                         const snap = ZoningEngine.calculateSnap(y);
+                         if(snap) {
+                            const system = State.parts.find(p=>p.id===State.activePartId).calibration[snap.systemId];
+                            const height = Math.abs(system.bottomY - system.topY);
+                            this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
+                            this.ghostNote.innerText = '𝄡';
+                            this.ghostNote.style.fontSize = (height * 0.8 * PDF.scale) + 'px';
+                            this.ghostNote.style.width = (height * 0.5 * PDF.scale) + 'px';
+                            this.ghostNote.style.height = (height * 0.8 * PDF.scale) + 'px';
+                            this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                            this.ghostNote.style.top = (snap.y * PDF.scale) + 'px';
+                         }
+                     } else {
+                         // Treble/Bass fixed
+                         const system = ZoningEngine.checkZone(y);
+                         if(system) {
+                            const height = Math.abs(system.bottomY - system.topY);
+                            this.ghostNote.classList.add('visible', 'ghost-clef');
+                            this.ghostNote.innerText = (State.noteDuration === 'treble') ? '𝄞' : '𝄢';
+                            this.ghostNote.style.fontSize = (height * 0.8 * PDF.scale) + 'px';
+                            this.ghostNote.style.width = (height * 0.6 * PDF.scale) + 'px';
+                            this.ghostNote.style.height = (height * 0.8 * PDF.scale) + 'px';
+                            this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                            this.ghostNote.style.top = (system.topY * PDF.scale) + 'px';
+                            this.ghostNote.style.transform = 'translate(-50%, 0)';
+                         }
+                     }
+                     ToolbarView.updatePitch("-"); 
+                     return;
+                }
+
+                // --- 3. SYMBOLS (Segno, Coda) ---
+                if (State.activeTool === 'symbol') {
+                    const system = ZoningEngine.checkZone(y);
+                    if(system) {
+                        const height = Math.abs(system.bottomY - system.topY);
+                        this.ghostNote.classList.add('visible', 'ghost-symbol');
+                        this.ghostNote.innerText = (State.noteDuration === 'segno') ? '𝄋' : '𝄌';
+                        this.ghostNote.style.fontSize = (height * 0.5 * PDF.scale) + 'px';
+                        this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                        // Symbols usually float above staff
+                        this.ghostNote.style.top = ((system.topY - (height * 0.25)) * PDF.scale) + 'px'; 
+                    }
+                    ToolbarView.updatePitch("-"); 
+                    return;
+                }
+
+                // --- 4. TIME / KEY ---
+                if (State.activeTool === 'time' || State.activeTool === 'key') {
                      const system = ZoningEngine.checkZone(y);
                      if (system) {
                          const height = Math.abs(system.bottomY - system.topY);
                          const midY = system.topY + (height / 2);
                          const boxHeight = height * PDF.scale;
                          const boxWidth = (height * 0.6) * PDF.scale;
-                         this.ghostNote.className = 'ghost-time visible';
+                         
+                         this.ghostNote.classList.add('visible', (State.activeTool === 'time' ? 'ghost-time' : 'ghost-key'));
                          this.ghostNote.style.width = boxWidth + 'px';
                          this.ghostNote.style.height = boxHeight + 'px';
                          this.ghostNote.style.left = (x * PDF.scale) + 'px';
                          this.ghostNote.style.top = (midY * PDF.scale) + 'px';
-                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
-                         this.ghostNote.style.borderRadius = '2px';
-                     } else { this.ghostNote.classList.remove('visible'); }
+                     }
                      ToolbarView.updatePitch("-"); return;
                 }
 
-                 // (Retaining existing logic for Key, Symbol, Clef, Barline, Note ghosts...)
-                 // Re-implementing standard note snap for completeness
+                // --- 5. NOTES & RESTS ---
                  const snap = ZoningEngine.calculateSnap(y);
                  if (snap) {
                     let displayX = x;
@@ -608,7 +637,6 @@ export const Input = {
                     
                     let visualWidth, visualHeight;
                     if (State.activeTool === 'rest') {
-                        // Rest Sizing Logic
                         const dur = parseInt(State.noteDuration);
                          switch(dur) {
                             case 1: case 2: visualHeight = noteSize * 0.5; visualWidth = noteSize * 1.2; break;
@@ -629,28 +657,20 @@ export const Input = {
 
                     if (State.activeTool === 'rest') {
                         this.ghostNote.className = 'ghost-note rest visible' + dottedClass + accidentalClass;
-                        this.ghostNote.innerText = ''; 
-                        this.ghostNote.style.width = visualWidth + 'px'; 
-                        this.ghostNote.style.height = visualHeight + 'px'; 
-                        this.ghostNote.style.fontSize = '';
-                        this.ghostNote.style.backgroundColor = 'transparent';
                         this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; 
-                        this.ghostNote.style.transform = "translate(-50%, -50%)";
                         this.ghostNote.style.borderRadius = '0';
                     } else {
-                        this.ghostNote.className = 'ghost-note visible' + dottedClass + accidentalClass;
-                        this.ghostNote.innerText = '';
-                        this.ghostNote.style.width = visualWidth + 'px';
-                        this.ghostNote.style.height = visualHeight + 'px';
-                        this.ghostNote.style.backgroundColor = '';
-                        this.ghostNote.style.border = '';
-                        this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
+                        this.ghostNote.className = 'ghost-note note-head visible' + dottedClass + accidentalClass;
                         this.ghostNote.style.borderRadius = '50%';
+                        this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
                     }
+                    
+                    this.ghostNote.style.width = visualWidth + 'px'; 
+                    this.ghostNote.style.height = visualHeight + 'px'; 
                     this.ghostNote.style.left = (displayX * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (snap.y * PDF.scale) + 'px';
                  } else {
-                     this.ghostNote.classList.remove('visible');
+                     this.ghostNote.className = 'ghost-note'; 
                      ToolbarView.updatePitch("-");
                  }
             } else {
