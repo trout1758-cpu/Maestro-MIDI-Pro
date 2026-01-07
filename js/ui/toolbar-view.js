@@ -124,13 +124,23 @@ export const ToolbarView = {
                  if ((note.type === 'note' || note.type === 'rest') && (tool === 'note' || tool === 'rest')) {
                      isCompatible = true;
                  } else if (note.type === tool) {
-                     // Barlines to Barlines, Clefs to Clefs, Symbols to Symbols
+                     // Strict equality for barline-to-barline, clef-to-clef, symbol-to-symbol
                      isCompatible = true;
                  }
 
                  if (isCompatible) {
-                     note.type = tool; 
-                     note.duration = subtype; 
+                     // For barlines/symbols/clefs, we just need to update the SUBTYPE (e.g., 'single' -> 'double')
+                     // For notes/rests, we might update both type and duration
+                     
+                     if (note.type === tool && tool !== 'note' && tool !== 'rest') {
+                         note.duration = subtype; // Using 'duration' prop to store subtype for non-note items
+                         // Some legacy items might use 'subtype' property directly, normalize this:
+                         note.subtype = subtype; 
+                     } else {
+                         // Note/Rest logic
+                         note.type = tool; 
+                         note.duration = subtype;
+                     }
                      
                      // If switching to non-note, clear note-specific props
                      if (tool !== 'note' && tool !== 'rest') {
