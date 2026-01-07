@@ -222,11 +222,13 @@ export const Input = {
     handleCanvasDown(e) {
         if (this.isSpace) return;
         
+        // --- CALIBRATION PRIORITY ---
         if (State.isCalibrating) {
             const { y } = Utils.getPdfCoords(e, PDF.scale);
             CalibrationController.handleDown(y);
             return;
         }
+
         if (State.activePartId) {
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
@@ -277,7 +279,7 @@ export const Input = {
                     this.selectStartX = x;
                     this.selectStartY = y;
                     
-                    // Ensure previous box is gone
+                    // Clean up potential old box
                     if(this.selectBox) this.selectBox.remove();
                     
                     this.selectBox = document.createElement('div');
@@ -326,12 +328,18 @@ export const Input = {
                         const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
                         let closestDist = Infinity; let closestBar = null;
                         barlines.forEach(bar => { const dist = Math.abs(bar.x - x); if (dist < closestDist) { closestDist = dist; closestBar = bar; } });
+                        
+                        const height = Math.abs(zoning.bottomY - zoning.topY);
+                        // Standard place: floating above staff
+                        const fixedY = zoning.topY - (height * 0.25);
+                        
+                        // If snapping to a barline, snap X
                         if (closestBar && closestDist < 20) {
-                            const height = Math.abs(zoning.bottomY - zoning.topY);
-                            const fixedY = zoning.topY - (height * 0.25);
                             placeItem({ x: closestBar.x, y: fixedY, systemId: zoning.id, type: 'symbol', subtype: State.noteDuration });
-                            return;
+                        } else {
+                            placeItem({ x: x, y: fixedY, systemId: zoning.id, type: 'symbol', subtype: State.noteDuration });
                         }
+                        return;
                     }
                     
                     if (State.activeTool === 'clef') {
@@ -340,6 +348,7 @@ export const Input = {
                             if(snap) placeItem({ x, y: snap.y, pitchIndex: snap.pitchIndex, systemId: snap.systemId, type: 'clef', subtype: 'c' });
                             return;
                         } else if (zoning) {
+                            // Treble/Bass snap to top line visually
                             placeItem({ x, y: zoning.topY, systemId: zoning.id, type: 'clef', subtype: State.noteDuration });
                             return;
                         }
@@ -384,8 +393,11 @@ export const Input = {
     },
 
     handleGlobalUp(e) {
+        // --- BOX SELECTION END ---
         if (this.isSelectingBox) {
             this.isSelectingBox = false;
+            // The logic here is fine, but visually it might have been failing if selectBox was null.
+            // Verified: selectBox is created in handleCanvasDown.
             if (this.selectBox) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const startX = this.selectStartX;
@@ -470,7 +482,7 @@ export const Input = {
             this.selectBox.style.height = h + 'px';
             this.selectBox.style.left = l + 'px';
             this.selectBox.style.top = t + 'px';
-            return;
+            // Important: do not return here, we still might need to update other UI elements
         }
         
         // --- DRAG SELECTION ---
@@ -524,8 +536,21 @@ export const Input = {
             if(this.ghostNote) this.ghostNote.classList.remove('visible');
             return;
         }
+        
+        // --- CALIBRATION PRIORITY ---
+        if (State.isCalibrating) {
+            // Hide ghost note during calibration
+            if (this.ghostNote) this.ghostNote.classList.remove('visible');
+            
+            const rect = PDF.overlay.getBoundingClientRect(); 
+            const isOver = Utils.checkCanvasBounds(e, rect);
+            if (isOver || CalibrationController.draggingLine) {
+                CalibrationController.handleMove(y);
+            }
+            return;
+        }
 
-        if (State.activePartId && !this.isSpace && !State.isCalibrating) {
+        if (State.activePartId && !this.isSpace) {
             if (State.isTieMode || State.mode === 'delete' || State.mode === 'select') {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 return; 
@@ -547,6 +572,7 @@ export const Input = {
                          this.ghostNote.classList.add('visible', 'ghost-barline', State.noteDuration); // 'single', 'double', etc.
                          this.ghostNote.style.height = (height * PDF.scale) + 'px';
                          this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                         // Align top of barline with top of system
                          this.ghostNote.style.top = (system.topY * PDF.scale) + 'px';
                      }
                      ToolbarView.updatePitch("-"); 
@@ -580,6 +606,7 @@ export const Input = {
                             this.ghostNote.style.width = (height * 0.6 * PDF.scale) + 'px';
                             this.ghostNote.style.height = (height * 0.8 * PDF.scale) + 'px';
                             this.ghostNote.style.left = (x * PDF.scale) + 'px';
+                            // Align roughly middle-top
                             this.ghostNote.style.top = (system.topY * PDF.scale) + 'px';
                             this.ghostNote.style.transform = 'translate(-50%, 0)';
                          }
@@ -597,7 +624,7 @@ export const Input = {
                         this.ghostNote.innerText = (State.noteDuration === 'segno') ? '𝄋' : '𝄌';
                         this.ghostNote.style.fontSize = (height * 0.5 * PDF.scale) + 'px';
                         this.ghostNote.style.left = (x * PDF.scale) + 'px';
-                        // Symbols usually float above staff
+                        // Symbols usually float above staff - align with placement logic
                         this.ghostNote.style.top = ((system.topY - (height * 0.25)) * PDF.scale) + 'px'; 
                     }
                     ToolbarView.updatePitch("-"); 
