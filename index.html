@@ -33,15 +33,28 @@
             </div>
         </div>
 
-        <!-- Center: Edit Controls (Smaller: ~60% size) -->
+        <!-- Center: Tools & Edit Controls -->
         <div class="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
+            <!-- Add Mode Button -->
+            <button id="add-mode-btn" onclick="ToolbarView.setAddMode(this)" class="header-tool-btn p-1.5 border border-blue-200 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors w-8 h-8 flex items-center justify-center active" title="Add Mode (Default)">
+                <i data-lucide="plus" size="16"></i>
+            </button>
+            
+            <!-- Unified Select Button -->
+            <button id="select-mode-btn" onclick="ToolbarView.setSelectMode(this)" class="header-tool-btn p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Select Mode">
+                <i data-lucide="mouse-pointer-2" size="14"></i>
+            </button>
+            
+            <div class="w-px h-6 bg-gray-300 mx-1"></div>
+
+            <!-- Edit Controls -->
             <button onclick="Input.undo()" class="p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Undo (Ctrl+Z)">
                 <i data-lucide="rotate-ccw" size="14"></i>
             </button>
             <button onclick="Input.redo()" class="p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Redo (Ctrl+Y)">
                 <i data-lucide="rotate-cw" size="14"></i>
             </button>
-            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="p-1.5 border border-red-200 rounded-full text-red-600 hover:bg-red-50 transition-colors w-8 h-8 flex items-center justify-center" title="Toggle Delete Mode">
+            <button id="delete-mode-btn" onclick="ToolbarView.toggleDelete(this)" class="header-tool-btn p-1.5 border border-red-200 rounded-full text-red-600 hover:bg-red-50 transition-colors w-8 h-8 flex items-center justify-center" title="Toggle Delete Mode">
                 <i data-lucide="trash-2" size="14"></i>
             </button>
         </div>
@@ -97,13 +110,12 @@
 
     <!-- CONTROL DECK -->
     <section id="control-deck" class="bg-white border-b border-gray-200 shadow-sm z-10 flex flex-col toolbar-disabled transition-all duration-300">
-        <!-- TABS -->
+        <!-- TABS (Select Removed) -->
         <div class="flex items-center justify-center gap-1 pt-1 border-b border-gray-100 overflow-x-auto">
-            <button class="tab-btn" onclick="ToolbarView.toggleCategory('select')">Select</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('measure')">Measure</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('signature')">Signature</button>
-            <button class="tab-btn" onclick="ToolbarView.toggleCategory('noterest')">Notes/Rests</button>
-            <button class="tab-btn active" onclick="ToolbarView.toggleCategory('rhythm')">Rhythm/Duration</button>
+            <button class="tab-btn active" onclick="ToolbarView.toggleCategory('noterest')">Notes/Rests</button>
+            <button class="tab-btn" onclick="ToolbarView.toggleCategory('rhythm')">Rhythm/Duration</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('dynamics')">Dynamics</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('articulation')">Articulation</button>
         </div>
@@ -111,32 +123,7 @@
         <!-- TOOL CONTAINER -->
         <div class="h-28 bg-gray-50 flex items-center justify-center opacity-50 relative px-6 transition-opacity duration-200" id="tool-container">
             
-            <!-- 0. SELECT -->
-            <div id="tools-select" class="flex gap-6 items-center justify-center w-full hidden">
-                <button class="maestro-btn tool-btn" title="Single Select" onclick="ToolbarView.selectTool('select', 'single', this)">
-                    <i data-lucide="mouse-pointer-2" size="24"></i>
-                </button>
-                <button class="maestro-btn tool-btn relative" title="Multi-Select" onclick="ToolbarView.selectTool('select', 'multi', this)">
-                    <i data-lucide="mouse-pointer-2" size="24" class="absolute top-3 left-3"></i>
-                    <i data-lucide="mouse-pointer-2" size="24" class="absolute top-4 left-5 opacity-50 transform scale-75"></i>
-                </button>
-                <button class="maestro-btn tool-btn relative" title="Measure Select" onclick="ToolbarView.selectTool('select', 'measure', this)" disabled>
-                     <div class="measure-icon-container relative w-8 h-8 flex items-center justify-center">
-                        <div class="w-full h-4 border-t border-b border-gray-600 flex flex-col justify-center gap-0.5">
-                            <div class="w-full h-px bg-gray-600"></div>
-                            <div class="w-full h-px bg-gray-600"></div>
-                            <div class="w-full h-px bg-gray-600"></div>
-                        </div>
-                        <div class="absolute left-0 top-0 bottom-0 w-px bg-gray-800 h-6 mt-1"></div>
-                        <div class="absolute right-0 top-0 bottom-0 w-px bg-gray-800 h-6 mt-1"></div>
-                        <i data-lucide="mouse-pointer-2" size="16" class="absolute -bottom-1 -right-2 text-black fill-black"></i>
-                     </div>
-                </button>
-            </div>
-
-            <!-- ... [Other Tool Categories remain same] ... -->
-            <!-- Note: Ensuring all other tool categories are present as before -->
-            
+            <!-- MEASURE -->
             <div id="tools-measure" class="flex gap-4 items-center w-full justify-center hidden">
                 <div class="flex gap-2">
                     <button class="maestro-btn tool-btn" title="Treble Clef" onclick="ToolbarView.selectTool('clef', 'treble', this)">𝄞</button>
@@ -157,6 +144,7 @@
                 </div>
             </div>
 
+            <!-- SIGNATURE -->
             <div id="tools-signature" class="flex flex-col gap-2 items-center w-full hidden">
                 <div class="flex gap-1 justify-center">
                     <button class="maestro-btn sig-btn tool-btn" title="2/2" onclick="ToolbarView.selectTool('time', '2/2', this)">2/2</button>
@@ -198,12 +186,15 @@
                 </div>
             </div>
 
-            <div id="tools-noterest" class="flex gap-6 items-center justify-center w-full hidden">
+            <!-- NOTES/RESTS -->
+            <div id="tools-noterest" class="flex gap-6 items-center justify-center w-full">
+                <!-- Accidentals (Left) -->
                 <div class="flex gap-2">
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Sharp" onclick="ToolbarView.toggleAccidental('sharp', this)">♯</button>
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Natural" onclick="ToolbarView.toggleAccidental('natural', this)">♮</button>
                     <button class="maestro-btn note-grid-btn accidental-btn placeholder opacity-50 cursor-not-allowed" disabled title="Flat" onclick="ToolbarView.toggleAccidental('flat', this)">♭</button>
                 </div>
+                <!-- Notes/Rests Grid (Center) -->
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2">
                         <button class="maestro-btn note-grid-btn tool-btn" onclick="ToolbarView.selectTool('note', 1, this)">𝅝</button>
@@ -220,12 +211,14 @@
                         <button class="maestro-btn note-grid-btn tool-btn" onclick="ToolbarView.selectTool('rest', 16, this)">𝄿</button>
                     </div>
                 </div>
+                <!-- Dot (Right) -->
                 <div>
                     <button class="maestro-btn note-grid-btn text-4xl pb-4" title="Dot" onclick="ToolbarView.toggleDot(this)">.</button>
                 </div>
             </div>
 
-            <div id="tools-rhythm" class="flex items-center justify-center w-full gap-16">
+            <!-- RHYTHM/DURATION -->
+            <div id="tools-rhythm" class="flex items-center justify-center w-full gap-16 hidden">
                 <button class="maestro-btn placeholder double-width-btn" title="Tempo Marking">Tempo</button>
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2">
@@ -264,6 +257,7 @@
                 </div>
             </div>
 
+            <!-- DYNAMICS -->
             <div id="tools-dynamics" class="flex gap-6 items-center justify-center w-full hidden">
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2 items-center">
@@ -291,6 +285,7 @@
                 </div>
             </div>
 
+             <!-- ARTICULATION -->
              <div id="tools-articulation" class="flex flex-col gap-2 items-center justify-center w-full hidden">
                 <div class="flex gap-2 items-center">
                     <button class="maestro-btn placeholder note-grid-btn text-xl" title="Accent">&gt;</button>
@@ -343,8 +338,6 @@
     </div>
 
     <!-- MODALS -->
-    <!-- ... (Part Modal/Delete Modal remains the same) ... -->
-    <!-- RE-INJECTING TO ENSURE COMPLETENESS -->
     <div id="part-modal" class="modal-overlay">
         <div class="bg-white rounded-xl shadow-2xl w-96 overflow-hidden">
             <div class="bg-slate-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
