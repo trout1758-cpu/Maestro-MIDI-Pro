@@ -82,11 +82,8 @@ body {
 .note-grid-btn {
     min-width: 3rem; height: 3rem; font-size: 1.6rem;
 }
-/* Double Width Button - REDUCED HEIGHT to 75% */
 .double-width-btn {
-    min-width: 7.5rem; /* ~2x normal + gap */
-    height: 2.6rem; /* Reduced from 3.5rem */
-    font-size: 1.1rem;
+    min-width: 7.5rem; height: 2.6rem; font-size: 1.1rem;
 }
 
 /* Dropdown for Triplet Button */
@@ -189,331 +186,160 @@ body.calibration-mode #calibration-footer { display: flex; }
 .ghost-line.top { border-bottom: 2px dashed red; }
 .ghost-line.bottom { border-top: 2px dashed blue; }
 
-/* GHOST NOTE */
+/* --- GHOSTS --- */
 .ghost-note {
-    position: absolute; 
+    position: absolute; pointer-events: none; z-index: 200; display: none;
+    transform: translate(-50%, -50%); /* Centered by default */
+}
+.ghost-note.visible { display: block; }
+
+/* Note Head Ghost */
+.ghost-note.note-head {
     background-color: rgba(37, 99, 235, 0.6); 
     border: 1px solid #1d4ed8;
     border-radius: 50%;
     transform: translate(-50%, -50%) rotate(-15deg);
-    pointer-events: none; z-index: 200;
-    display: none; 
-    transition: top 0.05s ease-out; 
 }
-.ghost-note.visible { display: block; }
 
+/* Rest Ghost */
 .ghost-note.rest {
      background-color: transparent;
-     border: 2px solid rgba(239, 68, 68, 0.6); /* Red border for rest box */
-     border-radius: 0;
-     display: none;
-     align-items: center; justify-content: center;
-     transform: translate(-50%, -50%);
+     border: 2px solid rgba(239, 68, 68, 0.6); 
+     display: flex; align-items: center; justify-content: center;
 }
-.ghost-note.rest.visible { display: flex; }
 
-/* GHOST BARLINE */
+/* Barline Ghost */
 .ghost-barline {
-    position: absolute;
-    width: 4px;
+    position: absolute; pointer-events: none; z-index: 200; display: none;
     background-color: rgba(56, 189, 248, 0.6);
-    pointer-events: none;
-    z-index: 200;
-    display: none;
 }
 .ghost-barline.visible { display: block; }
 
-/* GHOST CLEF */
-.ghost-clef {
-    position: absolute;
-    border: 2px solid rgba(56, 189, 248, 0.6);
-    pointer-events: none;
-    z-index: 200;
-    display: none;
-    background-color: transparent;
-    border-radius: 4px;
+.ghost-barline.single { width: 4px; }
+.ghost-barline.double { 
+    width: 10px; background-color: transparent;
+    border-left: 2px solid rgba(56, 189, 248, 0.6); 
+    border-right: 2px solid rgba(56, 189, 248, 0.6); 
 }
-.ghost-clef.c::after {
-    content: '';
-    position: absolute;
-    top: 50%; left: -10%; right: -10%;
-    height: 2px;
-    background-color: rgba(56, 189, 248, 0.6);
+.ghost-barline.final { 
+    width: 12px; background-color: transparent;
+    border-left: 2px solid rgba(56, 189, 248, 0.6); 
+    border-right: 6px solid rgba(56, 189, 248, 0.6); 
 }
-.ghost-clef.visible { display: block; }
+.ghost-barline.repeat { 
+    width: 12px; background-color: transparent;
+    border-left: 2px solid rgba(56, 189, 248, 0.6); 
+    border-right: 6px solid rgba(56, 189, 248, 0.6); 
+}
 
-/* GHOST SYMBOL (Segno/Coda) */
+/* Clef Ghost */
+.ghost-clef {
+    position: absolute; pointer-events: none; z-index: 200; display: none;
+    border: 2px solid rgba(56, 189, 248, 0.6); background-color: transparent; border-radius: 4px;
+    transform: translate(-50%, -50%);
+    font-family: 'Noto Music'; color: rgba(56, 189, 248, 0.6);
+    display: none; align-items: center; justify-content: center;
+}
+.ghost-clef.visible { display: flex; }
+
+/* Symbol Ghost */
 .ghost-symbol {
-    position: absolute;
-    border: 2px solid rgba(56, 189, 248, 0.6);
-    pointer-events: none;
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Noto Music';
-    color: rgba(56, 189, 248, 0.6);
-    font-size: 1.5rem;
-    background-color: transparent;
-    border-radius: 4px;
-    display: none;
+    position: absolute; pointer-events: none; z-index: 200; display: none;
+    border: 2px solid rgba(56, 189, 248, 0.6); background-color: transparent; border-radius: 4px;
+    transform: translate(-50%, -50%);
+    font-family: 'Noto Music'; color: rgba(56, 189, 248, 0.6);
+    display: none; align-items: center; justify-content: center;
 }
 .ghost-symbol.visible { display: flex; }
 
-/* GHOST TIME SIG */
-.ghost-time {
-    position: absolute;
-    border: 2px solid rgba(56, 189, 248, 0.6);
-    pointer-events: none;
-    z-index: 200;
-    display: none;
-    background-color: transparent;
-    border-radius: 2px;
+/* Time/Key Ghost */
+.ghost-time, .ghost-key {
+    position: absolute; pointer-events: none; z-index: 200; display: none;
+    border: 2px solid rgba(56, 189, 248, 0.6); background-color: transparent;
+    transform: translate(-50%, -50%);
 }
-.ghost-time.visible { display: block; }
-
-/* GHOST KEY SIG */
-.ghost-key {
-    position: absolute;
-    border: 2px solid rgba(56, 189, 248, 0.6);
-    pointer-events: none;
-    z-index: 200;
-    display: none;
-    background-color: transparent;
-    border-radius: 50%; /* Oval */
-}
-.ghost-key.visible { display: block; }
+.ghost-key { border-radius: 50%; }
+.ghost-time.visible, .ghost-key.visible { display: block; }
 
 
-/* PLACED NOTE */
+/* --- PLACED ITEMS (Standard) --- */
 .placed-note {
-    position: absolute; 
-    background-color: #2563eb; 
-    border-radius: 50%;
+    position: absolute; background-color: #2563eb; border-radius: 50%;
     transform: translate(-50%, -50%) rotate(-15deg);
     pointer-events: auto; cursor: pointer; z-index: 50;
 }
 .placed-note:hover { background-color: #1e40af; }
-.placed-note.selected { border: 2px solid #22c55e; background-color: #22c55e; } /* Green for selected */
+.placed-note.selected { border: 2px solid #22c55e; background-color: #22c55e; }
 
 .placed-note.rest {
-     background-color: transparent;
-     border: 2px solid #ef4444; /* Solid red border */
-     border-radius: 0;
+     background-color: transparent; border: 2px solid #ef4444; border-radius: 0;
      display: flex; align-items: center; justify-content: center;
      transform: translate(-50%, -50%);
 }
-.placed-note.rest:hover { border-color: #b91c1c; background-color: transparent; }
+.placed-note.rest:hover { border-color: #b91c1c; }
 .placed-note.rest.selected { border-color: #22c55e; }
 
-/* DOTTED NOTE STYLES */
+/* Accidental/Dot offsets */
 .placed-note.dotted::after, .ghost-note.dotted::after {
-    content: '.';
-    position: absolute;
-    font-size: 40px;
-    line-height: 0;
-    color: #2563eb; /* Matches note color */
-    right: -12px;
-    top: 0px; 
-    transform: rotate(15deg); /* Counter relative to the note's rotation */
+    content: '.'; position: absolute; font-size: 40px; line-height: 0;
+    color: inherit; right: -12px; top: 0px; transform: rotate(15deg);
 }
-.placed-note.selected.dotted::after { color: #22c55e; }
-
-/* DOTTED REST STYLES */
 .placed-note.rest.dotted::after, .ghost-note.rest.dotted::after {
-    content: '.';
-    position: absolute;
-    font-size: 30px;
-    line-height: 0;
-    color: #ef4444; /* Matches rest color */
-    right: -15px;
-    top: 40%;
-    transform: none;
-}
-.placed-note.rest.selected.dotted::after { color: #22c55e; }
-
-/* ACCIDENTAL STYLES */
-.placed-note.accidental-sharp::before, .ghost-note.accidental-sharp::before,
-.placed-note.accidental-flat::before, .ghost-note.accidental-flat::before,
-.placed-note.accidental-natural::before, .ghost-note.accidental-natural::before {
-    content: '';
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 2px solid #2563eb; /* Blue border */
-    background: transparent;
-    left: -20px; /* Position to the left */
-    top: 50%;
-    transform: translateY(-50%) rotate(15deg); 
-}
-.placed-note.selected.accidental-sharp::before, 
-.placed-note.selected.accidental-flat::before, 
-.placed-note.selected.accidental-natural::before {
-    border-color: #22c55e;
+    content: '.'; position: absolute; font-size: 30px; line-height: 0;
+    color: inherit; right: -15px; top: 40%; transform: none;
 }
 
-/* Adjust rest alignment since they don't rotate */
-.placed-note.rest.accidental-sharp::before, .ghost-note.rest.accidental-sharp::before,
-.placed-note.rest.accidental-flat::before, .ghost-note.rest.accidental-flat::before,
-.placed-note.rest.accidental-natural::before, .ghost-note.rest.accidental-natural::before {
-    display: none; 
-}
-
-
-/* PLACED BARLINE */
+/* Barlines */
 .placed-barline {
-    position: absolute;
-    pointer-events: auto;
-    cursor: pointer;
-    z-index: 50;
-    /* Default Single */
-    width: 3px;
-    background-color: #2563eb;
+    position: absolute; pointer-events: auto; cursor: pointer; z-index: 50;
+    width: 3px; background-color: #2563eb;
 }
 .placed-barline.selected { background-color: #22c55e; border-color: #22c55e; }
+.placed-barline.double { width: 10px; background-color: transparent; border-left: 2px solid #2563eb; border-right: 2px solid #2563eb; }
+.placed-barline.final { width: 12px; background-color: transparent; border-left: 2px solid #2563eb; border-right: 6px solid #2563eb; }
+.placed-barline.repeat { width: 12px; background-color: transparent; border-left: 2px solid #2563eb; border-right: 6px solid #2563eb; }
+.placed-barline.selected.double, .placed-barline.selected.final, .placed-barline.selected.repeat { border-color: #22c55e; }
 
-.placed-barline.double {
-    width: 10px;
-    background-color: transparent;
-    border-left: 2px solid #2563eb;
-    border-right: 2px solid #2563eb;
-}
-.placed-barline.selected.double { border-color: #22c55e; }
-
-.placed-barline.final {
-    width: 12px;
-    background-color: transparent;
-    border-left: 2px solid #2563eb;
-    border-right: 6px solid #2563eb;
-}
-.placed-barline.selected.final { border-color: #22c55e; }
-
-.placed-barline.repeat {
-    width: 12px;
-    background-color: transparent;
-    border-left: 2px solid #2563eb;
-    border-right: 6px solid #2563eb;
-}
-.placed-barline.selected.repeat { border-color: #22c55e; }
-
-.placed-barline.repeat::before, .placed-barline.repeat::after {
-    content: ''; 
-    position: absolute; 
-    left: 2px; 
-    width: 4px; 
-    height: 4px; 
-    border-radius: 50%; 
-    background: #2563eb;
-}
-.placed-barline.selected.repeat::before, .placed-barline.selected.repeat::after { background: #22c55e; }
-
-.placed-barline.repeat::before { top: 35%; }
-.placed-barline.repeat::after { bottom: 35%; }
-
-.placed-barline:hover { opacity: 0.8; }
-
-
-/* PLACED CLEF */
-.placed-clef {
-    position: absolute;
-    border: 2px solid #2563eb;
-    pointer-events: auto;
-    cursor: pointer;
-    z-index: 50;
-    background-color: transparent;
-    border-radius: 4px;
-    transform: translate(-50%, -50%);
-}
-.placed-clef.selected { border-color: #22c55e; }
-
-.placed-clef.c::after {
-    content: '';
-    position: absolute;
-    top: 50%; left: -10%; right: -10%;
-    height: 2px;
-    background-color: #2563eb;
-}
-.placed-clef.selected.c::after { background-color: #22c55e; }
-
-.placed-clef:hover { border-color: #1e40af; }
-.placed-clef.c:hover::after { background-color: #1e40af; }
-
-
-/* PLACED SYMBOL (Segno/Coda) */
-.placed-symbol {
-    position: absolute;
-    border: 2px solid #2563eb;
-    pointer-events: auto;
-    cursor: pointer;
-    z-index: 50;
-    background-color: transparent;
-    border-radius: 4px;
+/* Clefs/Symbols */
+.placed-clef, .placed-symbol {
+    position: absolute; border: 2px solid #2563eb; pointer-events: auto; cursor: pointer; z-index: 50;
+    background-color: transparent; border-radius: 4px;
     transform: translate(-50%, -50%);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Noto Music';
-    font-size: 1.5rem;
-    color: #2563eb;
+    font-family: 'Noto Music'; color: #2563eb;
 }
-.placed-symbol.selected { border-color: #22c55e; color: #22c55e; }
-.placed-symbol:hover { border-color: #1e40af; color: #1e40af; }
+.placed-clef.selected, .placed-symbol.selected { border-color: #22c55e; color: #22c55e; }
 
-/* PLACED TIME SIG */
-.placed-time {
-    position: absolute;
-    border: 2px solid #2563eb;
-    pointer-events: auto;
-    cursor: pointer;
-    z-index: 50;
-    background-color: transparent;
-    border-radius: 2px;
-    transform: translate(-50%, -50%);
+/* Time/Key */
+.placed-time, .placed-key {
+    position: absolute; border: 2px solid #2563eb; pointer-events: auto; cursor: pointer; z-index: 50;
+    background-color: transparent; transform: translate(-50%, -50%);
 }
-.placed-time.selected { border-color: #22c55e; }
-.placed-time:hover { border-color: #1e40af; }
+.placed-time.selected, .placed-key.selected { border-color: #22c55e; }
+.placed-key { border-radius: 50%; }
 
-/* PLACED KEY SIG */
-.placed-key {
-    position: absolute;
-    border: 2px solid #2563eb;
-    pointer-events: auto;
-    cursor: pointer;
-    z-index: 50;
-    background-color: transparent;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-}
-.placed-key.selected { border-color: #22c55e; }
-.placed-key:hover { border-color: #1e40af; }
-
-/* SELECTION BOX */
+/* SELECTION BOX (Marquee) */
 .selection-box {
     position: absolute;
-    border: 1px dashed #22c55e;
+    border: 2px dashed #22c55e;
     background-color: rgba(34, 197, 94, 0.2);
     pointer-events: none;
-    z-index: 100;
+    z-index: 1000;
 }
 
-
-/* PITCH INDICATOR */
+/* PITCH DISPLAY */
 #pitch-display {
-    font-family: 'Noto Music', sans-serif;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #2563eb;
-    min-width: 40px;
-    text-align: center;
+    font-family: 'Noto Music', sans-serif; font-size: 1.5rem; font-weight: bold;
+    color: #2563eb; min-width: 40px; text-align: center;
 }
 
-/* --- DROPDOWNS & MODALS --- */
+/* DROPDOWNS & MODALS */
 .dropdown-menu {
     display: none; position: absolute; top: 100%; left: 0; width: 240px;
     background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); 
     z-index: 100; 
 }
 .dropdown-menu.show { display: block; }
-
 .modal-overlay {
     display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center;
@@ -526,15 +352,9 @@ body.calibration-mode #calibration-footer { display: flex; }
 .part-item:hover { background-color: #f8fafc; }
 .part-item.active { background-color: #eff6ff; border-left: 4px solid var(--accent-blue); }
 
-/* FLOATING ZOOM CONTROLS */
 #zoom-controls {
     position: fixed; bottom: 24px; right: 24px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    background: white; border: 1px solid #e5e7eb; border-radius: 8px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: center;
-    padding: 4px;
-    z-index: 50;
+    display: flex; align-items: center; padding: 4px; z-index: 50;
 }
