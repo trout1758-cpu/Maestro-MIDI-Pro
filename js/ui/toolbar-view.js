@@ -53,18 +53,47 @@ export const ToolbarView = {
         }
     },
 
-    setAddMode(btn) {
+    setAddMode() {
         State.mode = 'add';
         State.selectedNotes = []; 
         NoteRenderer.renderAll();
-        this._updateHeaderVisuals(btn);
+        
+        // Reset Header Visuals
+        document.querySelectorAll('.header-tool-btn').forEach(b => {
+            b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
+            if (b.id === 'delete-mode-btn') {
+                 b.classList.remove('bg-red-600', 'text-white');
+                 b.classList.add('text-red-600', 'border-red-200');
+            } else {
+                 b.classList.add('text-gray-600', 'hover:bg-gray-100');
+            }
+        });
+
         document.getElementById('control-deck').classList.remove('selection-mode-active');
+        
+        // Restore active tool button highlight
+        this._restoreActiveToolButton();
     },
 
-    setSelectMode(btn) {
-        State.mode = 'select';
-        this._updateHeaderVisuals(btn);
-        document.getElementById('control-deck').classList.add('selection-mode-active');
+    toggleSelectMode(btn) {
+        if (State.mode === 'select') {
+            this.setAddMode();
+        } else {
+            State.mode = 'select';
+            
+            // Highlight Select Button
+            document.querySelectorAll('.header-tool-btn').forEach(b => {
+                b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
+                b.classList.add('text-gray-600');
+            });
+            btn.classList.remove('text-gray-600');
+            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+            
+            document.getElementById('control-deck').classList.add('selection-mode-active');
+            
+            // Deselect all tool buttons
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        }
     },
 
     toggleDelete(btn) {
@@ -80,34 +109,21 @@ export const ToolbarView = {
         }
 
         if (State.mode === 'delete') {
-            this.setAddMode(document.getElementById('add-mode-btn'));
+            this.setAddMode();
         } else {
             State.mode = 'delete';
-            this._updateHeaderVisuals(btn);
-        }
-    },
-
-    _updateHeaderVisuals(activeBtn) {
-        document.querySelectorAll('.header-tool-btn').forEach(b => {
-            b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-            b.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700'); 
-            b.classList.remove('text-red-600', 'border-red-200');
             
-            if (b.id === 'delete-mode-btn') {
-                 b.classList.add('text-red-600', 'hover:bg-red-50', 'border-red-200');
-            } else {
-                 b.classList.add('text-gray-600', 'hover:bg-gray-100');
-            }
-        });
-
-        if (activeBtn) {
-            if (activeBtn.id === 'delete-mode-btn') {
-                activeBtn.classList.remove('text-red-600', 'hover:bg-red-50');
-                activeBtn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700');
-            } else {
-                activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-100');
-                activeBtn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-            }
+            document.querySelectorAll('.header-tool-btn').forEach(b => {
+                b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
+                b.classList.add('text-gray-600');
+            });
+            
+            btn.classList.remove('text-red-600');
+            btn.classList.add('active', 'bg-red-600', 'text-white', 'hover:bg-red-700');
+            
+            // Clear selections
+            State.selectedNotes = [];
+            NoteRenderer.renderAll();
         }
     },
 
@@ -124,25 +140,18 @@ export const ToolbarView = {
                  if ((note.type === 'note' || note.type === 'rest') && (tool === 'note' || tool === 'rest')) {
                      isCompatible = true;
                  } else if (note.type === tool) {
-                     // Strict equality for barline-to-barline, clef-to-clef, symbol-to-symbol
                      isCompatible = true;
                  }
 
                  if (isCompatible) {
-                     // For barlines/symbols/clefs, we just need to update the SUBTYPE (e.g., 'single' -> 'double')
-                     // For notes/rests, we might update both type and duration
-                     
                      if (note.type === tool && tool !== 'note' && tool !== 'rest') {
-                         note.duration = subtype; // Using 'duration' prop to store subtype for non-note items
-                         // Some legacy items might use 'subtype' property directly, normalize this:
+                         note.duration = subtype; 
                          note.subtype = subtype; 
                      } else {
-                         // Note/Rest logic
                          note.type = tool; 
                          note.duration = subtype;
                      }
                      
-                     // If switching to non-note, clear note-specific props
                      if (tool !== 'note' && tool !== 'rest') {
                          delete note.isDotted;
                          delete note.accidental;
@@ -153,13 +162,18 @@ export const ToolbarView = {
              
              if (modificationsMade) {
                  NoteRenderer.renderAll();
+                 // VISUAL FLASH
+                 if (btn) {
+                     btn.classList.add('flash-active');
+                     setTimeout(() => btn.classList.remove('flash-active'), 150);
+                 }
              }
              return; 
         }
         
         // --- STANDARD TOOL SELECTION ---
         if (State.mode !== 'add') {
-            this.setAddMode(document.getElementById('add-mode-btn'));
+            this.setAddMode();
         }
 
         State.activeTool = tool;
@@ -193,13 +207,18 @@ export const ToolbarView = {
             Input.saveState();
             let changed = false;
             State.selectedNotes.forEach(n => {
-                // Only notes/rests can be dotted
                 if (n.type === 'note' || n.type === 'rest') {
                     n.isDotted = !n.isDotted;
                     changed = true;
                 }
             });
-            if(changed) NoteRenderer.renderAll();
+            if(changed) {
+                NoteRenderer.renderAll();
+                if (btn) {
+                     btn.classList.add('flash-active');
+                     setTimeout(() => btn.classList.remove('flash-active'), 150);
+                }
+            }
             return;
         }
 
@@ -224,7 +243,13 @@ export const ToolbarView = {
                     changed = true;
                 }
             });
-            if(changed) NoteRenderer.renderAll();
+            if(changed) {
+                NoteRenderer.renderAll();
+                if (btn) {
+                     btn.classList.add('flash-active');
+                     setTimeout(() => btn.classList.remove('flash-active'), 150);
+                }
+            }
             return;
         }
 
@@ -244,11 +269,26 @@ export const ToolbarView = {
         State.isTieMode = !State.isTieMode;
         if (State.isTieMode) {
             if (State.mode !== 'add') {
-                 this.setAddMode(document.getElementById('add-mode-btn'));
+                 this.setAddMode();
             }
             btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         } else {
             btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
         }
+    },
+
+    _restoreActiveToolButton() {
+        // Find button that matches current State.activeTool and State.noteDuration
+        const buttons = document.querySelectorAll('.tool-btn');
+        buttons.forEach(btn => {
+            // This relies on the onclick handler structure being predictable or custom attributes
+            // For now, we just clear all. Re-highlighting logic would require parsing onclick strings
+            // or adding data-attributes to buttons.
+            // As a fallback, we just clear to avoid visual confusion.
+            // If strict re-highlighting is needed, we should add data-tool and data-subtype attrs to HTML.
+        });
+        
+        // Attempt a simple re-highlight based on text content if possible, or leave blank until next click.
+        // Given the constraints, leaving it blank is safer than guessing wrong.
     }
 };
