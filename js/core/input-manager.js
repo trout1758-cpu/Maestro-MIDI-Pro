@@ -236,12 +236,10 @@ export const Input = {
         // --- DYNAMICS (Text) ---
         // Free-floating but associated with a zone
         if (State.activeTool === 'dynamic') {
-             // Find closest system to associate with
              let closestSystem = null;
              let minDistance = Infinity;
              
              part.calibration.forEach((sys, idx) => {
-                 // Check distance to the vertical center of the system
                  const sysMid = (sys.topY + sys.bottomY) / 2;
                  const dist = Math.abs(y - sysMid);
                  if (dist < minDistance) {
@@ -264,7 +262,6 @@ export const Input = {
              return null;
         }
 
-        // --- STANDARD ZONING CHECK ---
         const zoning = ZoningEngine.checkZone(y);
 
         // --- SYMBOLS ---
@@ -426,9 +423,7 @@ export const Input = {
                         return; 
                     }
 
-                    // --- HAIRPIN DRAG START ---
                     if (State.activeTool === 'hairpin') {
-                        // For hairpins, also associate with closest system for export grouping
                         let closestSystemId = 0;
                         let minDistance = Infinity;
                         part.calibration.forEach((sys, idx) => {
@@ -442,7 +437,6 @@ export const Input = {
                         return;
                     }
 
-                    // Standard Placement
                     const item = this.calculatePlacement(x, y);
                     if (item) {
                         this.saveState();
@@ -504,7 +498,7 @@ export const Input = {
                     width: width,
                     systemId: this.hairpinStart.systemId,
                     type: 'hairpin',
-                    subtype: State.noteDuration // 'crescendo' or 'diminuendo'
+                    subtype: State.noteDuration 
                 });
                 NoteRenderer.renderAll();
             }
@@ -565,7 +559,6 @@ export const Input = {
              const dy = y - this.dragStartY;
              State.selectedNotes.forEach(n => {
                  n.x += dx;
-                 // Notes/Rests/C-Clef snap
                  if (n.type === 'note' || n.type === 'rest' || (n.type === 'clef' && n.subtype === 'c')) {
                      const newY = n.y + dy;
                      const zone = ZoningEngine.checkZone(newY);
@@ -582,10 +575,8 @@ export const Input = {
                          n.y = newY; 
                      }
                  } 
-                 // Free floating items (Hairpins, Dynamics)
                  else if (n.type === 'dynamic' || n.type === 'hairpin') {
                      n.y += dy;
-                     // Re-calculate system association based on new Y
                      const part = State.parts.find(p => p.id === State.activePartId);
                      let closestSystemId = n.systemId;
                      let minDistance = Infinity;
@@ -596,7 +587,6 @@ export const Input = {
                      });
                      n.systemId = closestSystemId;
                  }
-                 // Fixed items (Barlines, Key, Time)
                  else {
                      const zone = ZoningEngine.checkZone(n.y + dy);
                      if (zone && zone.id !== n.systemId) {
@@ -651,12 +641,10 @@ export const Input = {
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
                 
-                // Clear all classes first
                 this.ghostNote.className = 'ghost-note'; 
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
 
-                // --- HAIRPIN DRAGGING VISUAL ---
                 if (this.isDraggingHairpin && this.hairpinStart) {
                     this.ghostNote.classList.remove('visible');
                     const svgLayer = document.querySelector('#overlay-layer svg');
@@ -682,20 +670,15 @@ export const Input = {
                     return;
                 }
 
-                // --- CALCULATE PLACEMENT ---
-                // We use the same function for both placement and ghosting
                 const item = this.calculatePlacement(x, y);
 
                 if (!item) {
-                    // Hide ghost if placement is invalid (e.g. symbol not near barline)
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                     return;
                 }
 
-                // --- RENDER GHOST ---
-                
-                // Dynamics
+                // DYNAMICS
                 if (item.type === 'dynamic') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 1.5) * PDF.scale;
@@ -711,7 +694,7 @@ export const Input = {
                     return;
                 }
                 
-                // Barlines
+                // BARLINES
                 if (item.type === 'barline') {
                     this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
@@ -722,7 +705,7 @@ export const Input = {
                     return;
                 }
 
-                // Clefs
+                // CLEFS
                 if (item.type === 'clef') {
                     if (item.subtype === 'c') {
                         this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
@@ -747,7 +730,7 @@ export const Input = {
                     return;
                 }
 
-                // Symbols
+                // SYMBOLS
                 if (item.type === 'symbol') {
                     this.ghostNote.classList.add('visible', 'ghost-symbol');
                     this.ghostNote.innerText = (item.subtype === 'segno') ? '𝄋' : '𝄌';
@@ -759,7 +742,7 @@ export const Input = {
                     return;
                 }
 
-                // Time/Key
+                // TIME / KEY
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
@@ -773,7 +756,7 @@ export const Input = {
                     return;
                 }
 
-                // Notes/Rests
+                // NOTES & RESTS
                 if (item.type === 'note' || item.type === 'rest') {
                     let visualWidth, visualHeight;
                     const noteSize = item.meta.noteSize;
