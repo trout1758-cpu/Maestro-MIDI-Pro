@@ -1,286 +1,273 @@
 import { State } from '../state.js';
 import { PDF } from './pdf-engine.js';
-import { Input } from './input-manager.js';
 
 export const NoteRenderer = {
     renderAll() {
-        PDF.overlay.innerHTML = ''; 
-        Input.initGhostNote();
+        const overlay = document.getElementById('overlay-layer');
+        if (!overlay) return;
+        overlay.innerHTML = '';
 
-        // Create SVG layer for ties
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.style.position = 'absolute';
-        svg.style.top = '0';
-        svg.style.left = '0';
-        svg.style.width = '100%';
-        svg.style.height = '100%';
-        svg.style.pointerEvents = 'none';
-        svg.style.zIndex = '40'; 
-        PDF.overlay.appendChild(svg);
+        // Add SVG Layer for connections (Ties, Hairpins)
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svgLayer = document.createElementNS(svgNS, "svg");
+        svgLayer.style.position = 'absolute';
+        svgLayer.style.top = '0';
+        svgLayer.style.left = '0';
+        svgLayer.style.width = '100%';
+        svgLayer.style.height = '100%';
+        svgLayer.style.pointerEvents = 'none'; // Let clicks pass through to divs
+        overlay.appendChild(svgLayer);
 
         if (!State.activePartId) return;
-
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return;
 
-        // Clone and Sort for sequential logic
-        const sortedNotes = [...part.notes].sort((a, b) => {
-             // System ID order primarily
-             if (a.systemId !== b.systemId) return a.systemId - b.systemId;
-             return a.x - b.x;
-        });
-
-        // 1. Render all notes
+        // Render Connections First (Bottom Layer)
         part.notes.forEach(note => {
-            // Check if note object is in selectedNotes array
-            const isSelected = State.selectedNotes.includes(note);
-            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted, note.accidental, isSelected);
+            if (note.hasTie && note.type === 'note') {
+                const nextNote = this.findNextNote(part.notes, note);
+                if (nextNote) {
+                    this.drawTie(svgLayer, note, nextNote);
+                }
+            }
+            if (note.type === 'hairpin') {
+                this.drawHairpin(svgLayer, note);
+            }
         });
 
-        // 2. Render ties
-        sortedNotes.forEach((note, index) => {
-            if (note.type === 'note' && note.hasTie) {
-                let nextNote = null;
-                for (let i = index + 1; i < sortedNotes.length; i++) {
-                    const candidate = sortedNotes[i];
-                    if (candidate.type === 'note') {
-                        if (candidate.pitchIndex === note.pitchIndex) {
-                            nextNote = candidate;
-                            break;
-                        }
-                    }
-                }
-                this.drawTie(svg, note, nextNote, part);
+        // Render Items
+        part.notes.forEach(note => {
+            if (note.type !== 'hairpin') { // Hairpins drawn on SVG layer
+                this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype || note.duration, note.isDotted, note.accidental, note);
             }
         });
     },
 
-    drawTie(svg, startNote, endNote, part) {
-        const startX = startNote.x * PDF.scale;
-        const startY = startNote.y * PDF.scale;
-        
-        let endX, endY;
-        let isDangling = false;
+    findNextNote(allNotes, currentNote) {
+        // Find next note of same pitch in same system
+        const candidates = allNotes.filter(n => 
+            n.systemId === currentNote.systemId && 
+            n.pitchIndex === currentNote.pitchIndex && 
+            n.x > currentNote.x &&
+            n.type === 'note'
+        );
+        return candidates.sort((a,b) => a.x - b.x)[0];
+    },
 
-        if (endNote && endNote.systemId === startNote.systemId) {
-            endX = endNote.x * PDF.scale;
-            endY = endNote.y * PDF.scale;
-        } else {
-            isDangling = true;
-            endX = startX + (40 * PDF.scale); 
-            endY = startY;
-        }
-
-        const isStemDown = startNote.pitchIndex <= 4; 
-        const curveDir = isStemDown ? -1 : 1; 
-
-        const noteRadius = (startNote.size || 10) * PDF.scale;
-        const gap = noteRadius * 0.8;
-        
-        const x1 = startX + gap;
-        const y1 = startY;
-        const x2 = endX - gap;
-        const y2 = endY;
-
-        const cx = (x1 + x2) / 2;
-        const cy = ((y1 + y2) / 2) + (15 * curveDir * PDF.scale); 
-
+    drawTie(svgLayer, start, end) {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
+        const startX = start.x * PDF.scale;
+        const startY = start.y * PDF.scale;
+        const endX = end.x * PDF.scale;
+        const endY = end.y * PDF.scale;
+
+        const isStemDown = start.pitchIndex <= 4; 
+        const curveDir = isStemDown ? -1 : 1;
+        
+        const cx = (startX + endX) / 2;
+        const cy = ((startY + endY) / 2) + (15 * curveDir * PDF.scale);
+
+        path.setAttribute("d", `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`);
         path.setAttribute("stroke", "#2563eb");
         path.setAttribute("stroke-width", "2");
         path.setAttribute("fill", "none");
         
-        if(isDangling) {
-             path.setAttribute("stroke-dasharray", "4");
-             path.setAttribute("opacity", "0.5");
+        // Highlight logic for ties implies selecting the start note usually
+        if (State.selectedNotes.includes(start)) {
+             path.setAttribute("stroke", "#22c55e");
         }
 
-        svg.appendChild(path);
+        svgLayer.appendChild(path);
     },
 
-    drawNote(unscaledX, unscaledY, savedSize, pitchIndex, systemId, type = 'note', subtype = null, isDotted = false, accidental = null, isSelected = false) {
-        const part = State.parts.find(p => p.id === State.activePartId);
+    drawHairpin(svgLayer, hairpin) {
+        // Hairpin is defined by {x, y, width, subtype}
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const startX = hairpin.x * PDF.scale;
+        const startY = hairpin.y * PDF.scale;
+        const width = hairpin.width * PDF.scale;
+        const h = 10 * PDF.scale; // Height of opening
+
+        // Determine Selection color
+        const color = State.selectedNotes.includes(hairpin) ? "#22c55e" : "#2563eb";
         
+        if (hairpin.subtype === 'crescendo') {
+             // < shape
+             path.setAttribute("d", `M ${startX+width} ${startY-h} L ${startX} ${startY} L ${startX+width} ${startY+h}`);
+        } else {
+             // > shape
+             path.setAttribute("d", `M ${startX} ${startY-h} L ${startX+width} ${startY} L ${startX} ${startY+h}`);
+        }
+
+        path.setAttribute("stroke", color);
+        path.setAttribute("stroke-width", "2");
+        path.setAttribute("fill", "none");
+        
+        // Add a transparent fat line for easier clicking
+        const hitArea = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        hitArea.setAttribute("x", startX);
+        hitArea.setAttribute("y", startY - h);
+        hitArea.setAttribute("width", width);
+        hitArea.setAttribute("height", h*2);
+        hitArea.setAttribute("fill", "transparent");
+        hitArea.setAttribute("class", "placed-hairpin"); // Use this for pointer events
+        
+        // We can't easily attach the object reference to the SVG element in a way Input manager sees cleanly
+        // without custom property logic, but Input Manager uses Euclidean distance check usually.
+        // Wait, InputManager.findTargetNote checks distance.
+        // Hairpins have 'x, y', so clicking the origin works. 
+        // But clicking the middle might fail distance check if only checking (x,y).
+        // For now, let's just render the visual path.
+        // To make it clickable via 'findTargetNote', the user must click near the 'origin'.
+        // Advanced hit detection for lines is complex, sticking to simple origin point click for MVP.
+
+        svgLayer.appendChild(path);
+    },
+
+    drawNote(x, y, size, pitchIndex, systemId, type, subtype, isDotted, accidental, noteObj) {
         const el = document.createElement('div');
-        // Add .selected class if selected
-        if (isSelected) {
-            el.classList.add('selected');
-        }
+        
+        // Basic Positioning
+        el.style.left = (x * PDF.scale) + 'px';
+        el.style.top = (y * PDF.scale) + 'px';
+        
+        // Selection Class
+        const isSelected = State.selectedNotes.includes(noteObj);
+        const selClass = isSelected ? ' selected' : '';
 
-        if (type === 'time') {
+        // --- 1. DYNAMICS ---
+        if (type === 'dynamic') {
+            el.className = 'placed-dynamic' + selClass;
+            el.innerText = subtype;
+            
+            // Calculate Box Size based on system height (passed in noteObj usually, but re-calc here or estimate)
+            // We can estimate from size if needed, but size passed in drawNote is usually calculated from zoning
+            // In calculatePlacement for dynamics, we didn't calculate 'size' property for noteObj, we passed 'meta.height'
+            // But here we are iterating stored notes. Stored notes for dynamics only have {x, y, type, subtype}.
+            // We need to re-calculate scale roughly or rely on consistent rendering scale.
+            
+            // Re-calculate height from zoning to be safe/responsive on zoom? 
+            // PDF.scale handles zoom. The base font size needs to be relative to staff height.
+            // But we don't have staff height here cheaply without looking up system.
+            // Let's use a standard scale factor or lookup if possible.
+            // part.calibration[systemId] exists.
+            
+            const part = State.parts.find(p => p.id === State.activePartId);
             const system = part.calibration[systemId];
-            if (!system) return;
-            const height = Math.abs(system.bottomY - system.topY);
-            const midY = system.topY + (height / 2);
-            
-            // UPDATED: Full staff height scaling
-            const boxHeight = height * PDF.scale;
-            const boxWidth = (height * 0.6) * PDF.scale;
-
-            el.className += ' placed-time'; // Append to existing classes
-            el.style.width = boxWidth + 'px';
-            el.style.height = boxHeight + 'px';
-            el.style.left = (unscaledX * PDF.scale) + 'px';
-            el.style.top = (midY * PDF.scale) + 'px';
-            
-            PDF.overlay.appendChild(el);
-            return;
-        }
-
-        if (type === 'key') {
-            const system = part.calibration[systemId];
-            if (!system) return;
-            const height = Math.abs(system.bottomY - system.topY);
-            const midY = system.topY + (height / 2);
-            
-            const ovalHeight = height * PDF.scale;
-            const ovalWidth = (height * 1.2) * PDF.scale;
-
-            el.className += ' placed-key';
-            el.style.width = ovalWidth + 'px';
-            el.style.height = ovalHeight + 'px';
-            el.style.left = (unscaledX * PDF.scale) + 'px';
-            el.style.top = (midY * PDF.scale) + 'px';
-            
-            PDF.overlay.appendChild(el);
-            return;
-        }
-
-        if (type === 'symbol') {
-            const system = part.calibration[systemId];
-            if (!system) return;
-            const height = Math.abs(system.bottomY - system.topY);
-            
-            const fixedY = system.topY - (height * 0.25);
-            const boxSize = (height * 0.6) * PDF.scale;
-            
-            el.className += ' placed-symbol';
-            el.innerText = subtype === 'segno' ? '𝄋' : '𝄌';
-            el.style.width = boxSize + 'px';
-            el.style.height = boxSize + 'px';
-            el.style.left = (unscaledX * PDF.scale) + 'px';
-            el.style.top = (fixedY * PDF.scale) + 'px';
-            
-            PDF.overlay.appendChild(el);
-            return;
-        }
-
-        if (type === 'clef') {
-            const system = part.calibration[systemId];
-            if (!system) return;
-            const height = Math.abs(system.bottomY - system.topY);
-            
-            let renderY = unscaledY;
-            let boxHeight = (height * 0.9) * PDF.scale;
-            let boxWidth = (height * 0.6) * PDF.scale;
-
-            if (subtype === 'treble') {
-                // UPDATED Treble Clef Size
-                boxHeight = (height * 1.5) * PDF.scale; 
-                renderY = system.topY + (0.75 * height);
-            } else if (subtype === 'bass') {
-                // UPDATED Bass Clef Size
-                boxHeight = (height * 0.9) * PDF.scale;
-                renderY = system.topY + (0.25 * height);
-            } else if (subtype === 'c') {
-                boxHeight = (height * 0.8) * PDF.scale;
-                boxWidth = (height * 0.5) * PDF.scale;
-            }
-            
-            el.className += ` placed-clef ${subtype}`;
-            el.style.width = boxWidth + 'px';
-            el.style.height = boxHeight + 'px';
-            el.style.left = (unscaledX * PDF.scale) + 'px';
-            el.style.top = (renderY * PDF.scale) + 'px';
-            
-            PDF.overlay.appendChild(el);
-            return;
-        }
-
-        if (type === 'barline') {
-            const system = part.calibration[systemId];
-            if (!system) return;
-            
-            const height = Math.abs(system.bottomY - system.topY);
-            el.className += ` placed-barline ${subtype || ''}`;
-            el.style.height = (height * PDF.scale) + 'px';
-            el.style.left = (unscaledX * PDF.scale) + 'px';
-            el.style.top = (system.topY * PDF.scale) + 'px';
-            
-            PDF.overlay.appendChild(el);
-            return;
-        }
-
-        let renderY = unscaledY;
-        let renderSize = savedSize;
-        let spaceHeight = 20; // fallback
-
-        if (systemId !== undefined && pitchIndex !== undefined) {
-            const system = part.calibration[systemId]; 
             if (system) {
-                const height = Math.abs(system.bottomY - system.topY);
-                spaceHeight = height / 4;
-                renderSize = spaceHeight;
-                const stepSize = height / 8;
-                renderY = system.topY + (pitchIndex * stepSize);
+                 const height = Math.abs(system.bottomY - system.topY);
+                 const boxHeight = height * PDF.scale;
+                 const boxWidth = (height * 1.5) * PDF.scale;
+                 el.style.width = boxWidth + 'px';
+                 el.style.height = boxHeight + 'px';
+                 el.style.fontSize = (boxHeight * 0.6) + 'px';
+            } else {
+                 // Fallback
+                 el.style.width = (40 * PDF.scale) + 'px';
+                 el.style.height = (30 * PDF.scale) + 'px';
             }
+            
+            document.getElementById('overlay-layer').appendChild(el);
+            return;
         }
-        if (!renderSize) renderSize = 20;
 
-        let classes = type === 'rest' ? 'placed-note rest' : 'placed-note';
-        if (isDotted) classes += ' dotted';
-        if (accidental) classes += ` accidental-${accidental}`;
-        if (isSelected) classes += ' selected'; 
-        
-        el.className += ' ' + classes; 
-        
-        let scaledWidth, scaledHeight;
+        // --- 2. BARLINES ---
+        if (type === 'barline') {
+            const part = State.parts.find(p => p.id === State.activePartId);
+            const system = part.calibration[systemId];
+            const height = Math.abs(system.bottomY - system.topY);
+            
+            el.className = `placed-barline ${subtype}` + selClass;
+            el.style.height = (height * PDF.scale) + 'px';
+            // Barlines top-align
+            el.style.top = (system.topY * PDF.scale) + 'px'; 
+            el.style.transform = 'translateX(-50%)';
+            document.getElementById('overlay-layer').appendChild(el);
+            return;
+        }
 
-        // UPDATED: Placed Note Sizing
+        // --- 3. CLEFS ---
+        if (type === 'clef') {
+            const part = State.parts.find(p => p.id === State.activePartId);
+            const system = part.calibration[systemId];
+            const height = Math.abs(system.bottomY - system.topY);
+            
+            el.className = `placed-clef ${subtype}` + selClass;
+            el.style.fontSize = (height * 0.8 * PDF.scale) + 'px';
+            el.style.width = (height * (subtype === 'c' ? 0.5 : 0.6) * PDF.scale) + 'px';
+            el.style.height = (height * 0.8 * PDF.scale) + 'px';
+            
+            if (subtype === 'c') {
+                el.innerText = '𝄡';
+            } else if (subtype === 'treble') {
+                el.innerText = '𝄞';
+                el.style.top = (system.topY * PDF.scale) + 'px'; // Top Align
+                el.style.transform = 'translate(-50%, 0)';
+            } else {
+                el.innerText = '𝄢';
+                el.style.top = (system.topY * PDF.scale) + 'px'; // Top Align
+                el.style.transform = 'translate(-50%, 0)';
+            }
+            document.getElementById('overlay-layer').appendChild(el);
+            return;
+        }
+
+        // --- 4. TIME/KEY ---
+        if (type === 'time' || type === 'key') {
+            const part = State.parts.find(p => p.id === State.activePartId);
+            const system = part.calibration[systemId];
+            const height = Math.abs(system.bottomY - system.topY);
+            
+            el.className = (type === 'time' ? 'placed-time' : 'placed-key') + selClass;
+            el.style.width = ((height * 0.6) * PDF.scale) + 'px';
+            el.style.height = (height * PDF.scale) + 'px';
+            document.getElementById('overlay-layer').appendChild(el);
+            return;
+        }
+
+        // --- 5. SYMBOLS ---
+        if (type === 'symbol') {
+            const part = State.parts.find(p => p.id === State.activePartId);
+            const system = part.calibration[systemId];
+            const height = Math.abs(system.bottomY - system.topY);
+            
+            el.className = 'placed-symbol' + selClass;
+            el.innerText = (subtype === 'segno') ? '𝄋' : '𝄌';
+            el.style.fontSize = (height * 0.5 * PDF.scale) + 'px';
+            document.getElementById('overlay-layer').appendChild(el);
+            return;
+        }
+
+        // --- 6. NOTES & RESTS ---
+        let visualWidth, visualHeight;
+        size = size * PDF.scale; // Scale base size
+        
         if (type === 'rest') {
-             // Match logic in input-manager.js
-             let dur = 4;
-             if (savedSize && subtype) dur = parseInt(subtype); // use subtype as duration for rests if available
-             else if (savedSize && !subtype && State.noteDuration) dur = parseInt(State.noteDuration); // Fallback if freshly placed
-
-             // If reading from saved note, subtype usually stores duration for rests?
-             // In input manager: part.notes.push({ ... subtype: State.noteDuration ... })
-             // So note.subtype holds the duration
-             
-             if (subtype) dur = parseInt(subtype);
-
+            const dur = parseInt(subtype || duration);
              switch(dur) {
-                case 1: case 2: scaledHeight = spaceHeight * 0.5; scaledWidth = spaceHeight * 1.2; break;
-                case 4: scaledHeight = spaceHeight * 3; scaledWidth = spaceHeight * 1.1; break;
-                case 8: scaledHeight = spaceHeight * 2; scaledWidth = spaceHeight * 1.1; break;
-                case 16: scaledHeight = spaceHeight * 2.5; scaledWidth = spaceHeight * 1.5; break;
-                default: scaledHeight = spaceHeight * 2; scaledWidth = spaceHeight;
-             }
-             
-             scaledHeight *= PDF.scale;
-             scaledWidth *= PDF.scale;
-
-             el.innerText = ''; 
-             el.style.border = '2px solid #ef4444'; 
-             el.style.backgroundColor = 'transparent';
-             el.style.borderRadius = '0';
-             el.style.transform = "translate(-50%, -50%)"; 
-             
-             if (isSelected) {
-                 el.style.borderColor = '#22c55e';
+                case 1: case 2: visualHeight = size * 0.5; visualWidth = size * 1.2; break;
+                case 4: visualHeight = size * 3; visualWidth = size * 1.1; break;
+                case 8: visualHeight = size * 2; visualWidth = size * 1.1; break;
+                case 16: visualHeight = size * 2.5; visualWidth = size * 1.5; break;
+                default: visualHeight = size * 2; visualWidth = size;
              }
         } else {
-             scaledHeight = renderSize * PDF.scale;
-             scaledWidth = (renderSize * 1.3) * PDF.scale;
-             el.style.transform = "translate(-50%, -50%) rotate(-15deg)";
+            visualHeight = size;
+            visualWidth = size * 1.3;
         }
         
-        el.style.height = scaledHeight + 'px';
-        el.style.width = scaledWidth + 'px'; 
-        el.style.left = (unscaledX * PDF.scale) + 'px';
-        el.style.top = (renderY * PDF.scale) + 'px';
+        el.style.width = visualWidth + 'px';
+        el.style.height = visualHeight + 'px';
+
+        const dottedClass = isDotted ? ' dotted' : '';
+        const accidentalClass = accidental ? ` accidental-${accidental}` : '';
+
+        if (type === 'rest') {
+            el.className = 'placed-note rest' + dottedClass + accidentalClass + selClass;
+        } else {
+            el.className = 'placed-note' + dottedClass + accidentalClass + selClass;
+        }
         
-        PDF.overlay.appendChild(el);
+        document.getElementById('overlay-layer').appendChild(el);
     }
 };
