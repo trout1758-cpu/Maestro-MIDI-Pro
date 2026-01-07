@@ -35,13 +35,8 @@
 
         <!-- Center: Tools & Edit Controls -->
         <div class="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
-            <!-- Add Mode Button -->
-            <button id="add-mode-btn" onclick="ToolbarView.setAddMode(this)" class="header-tool-btn p-1.5 border border-blue-200 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors w-8 h-8 flex items-center justify-center active" title="Add Mode (Default)">
-                <i data-lucide="plus" size="16"></i>
-            </button>
-            
-            <!-- Unified Select Button -->
-            <button id="select-mode-btn" onclick="ToolbarView.setSelectMode(this)" class="header-tool-btn p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Select Mode">
+            <!-- Unified Select Button (Toggle) -->
+            <button id="select-mode-btn" onclick="ToolbarView.toggleSelectMode(this)" class="header-tool-btn p-1.5 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors w-8 h-8 flex items-center justify-center" title="Toggle Select Mode">
                 <i data-lucide="mouse-pointer-2" size="14"></i>
             </button>
             
