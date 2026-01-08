@@ -481,7 +481,9 @@ export const Input = {
                         this.saveState();
                         const { meta, ...cleanItem } = item; 
                         part.notes.push(cleanItem);
-                        NoteRenderer.drawNote(cleanItem.x, cleanItem.y, cleanItem.size, cleanItem.pitchIndex, cleanItem.systemId, cleanItem.type, cleanItem.subtype, cleanItem.isDotted, cleanItem.accidental);
+                        // FIX: Use renderAll() instead of drawNote(). drawNote defaults to noteheads for unknown types.
+                        // renderAll() routes correctly to drawDynamic, drawHairpin, etc.
+                        NoteRenderer.renderAll();
                     }
                 }
             }
