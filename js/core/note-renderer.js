@@ -7,7 +7,7 @@ export const NoteRenderer = {
         PDF.overlay.innerHTML = ''; 
         Input.initGhostNote();
 
-        // Create SVG layer for ties
+        // Create SVG layer for ties & hairpins
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.style.position = 'absolute';
         svg.style.top = '0';
@@ -23,18 +23,22 @@ export const NoteRenderer = {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return;
 
-        // Clone and Sort for sequential logic
         const sortedNotes = [...part.notes].sort((a, b) => {
-             // System ID order primarily
              if (a.systemId !== b.systemId) return a.systemId - b.systemId;
              return a.x - b.x;
         });
 
-        // 1. Render all notes
+        // 1. Render all notes, symbols, dynamics
         part.notes.forEach(note => {
-            // Check if note object is in selectedNotes array
             const isSelected = State.selectedNotes.includes(note);
-            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted, note.accidental, isSelected);
+            // Handle new types: dynamic, hairpin
+            if (note.type === 'hairpin') {
+                this.drawHairpin(svg, note, isSelected);
+            } else if (note.type === 'dynamic') {
+                this.drawDynamic(note, isSelected);
+            } else {
+                this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted, note.accidental, isSelected);
+            }
         });
 
         // 2. Render ties
@@ -53,6 +57,81 @@ export const NoteRenderer = {
                 this.drawTie(svg, note, nextNote, part);
             }
         });
+    },
+
+    drawHairpin(svg, note, isSelected) {
+        const startX = note.x * PDF.scale;
+        const startY = note.y * PDF.scale;
+        const width = note.width * PDF.scale;
+        const endX = startX + width;
+        const height = 10 * PDF.scale; // Visual height of opening
+
+        const midY = startY;
+        const topY = midY - height;
+        const botY = midY + height;
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        
+        if (note.subtype === 'crescendo') {
+             // <  (Starts closed, ends open)
+             path.setAttribute("d", `M ${endX} ${topY} L ${startX} ${midY} L ${endX} ${botY}`);
+        } else {
+             // > (Starts open, ends closed)
+             path.setAttribute("d", `M ${startX} ${topY} L ${endX} ${midY} L ${startX} ${botY}`);
+        }
+
+        path.setAttribute("stroke", isSelected ? "#22c55e" : "#2563eb");
+        path.setAttribute("stroke-width", "2");
+        path.setAttribute("fill", "none");
+        
+        // Add click listener to SVG path via a transparent hit box if needed, 
+        // but for now relying on proximity in input-manager to select.
+        // Actually, SVG pointer events are none in main init, so we might need a hit box div?
+        // Input Manager uses visual proximity (findTargetNote), so we don't strictly need clicks ON the line.
+        
+        svg.appendChild(path);
+    },
+
+    drawDynamic(note, isSelected) {
+        const part = State.parts.find(p => p.id === State.activePartId);
+        const system = part.calibration[note.systemId];
+        if (!system) return;
+
+        const systemHeight = Math.abs(system.bottomY - system.topY);
+        // Box scaling: roughly 60% of staff height
+        const boxHeight = systemHeight * 0.6 * PDF.scale;
+        
+        const el = document.createElement('div');
+        el.className = 'placed-dynamic';
+        if (isSelected) el.classList.add('selected');
+        
+        el.innerText = note.subtype; // p, mf, etc.
+        el.style.height = boxHeight + 'px';
+        el.style.minWidth = boxHeight + 'px'; // Square-ish
+        el.style.left = (note.x * PDF.scale) + 'px';
+        el.style.top = (note.y * PDF.scale) + 'px';
+        el.style.fontSize = (boxHeight * 0.8) + 'px'; // Scale font
+        
+        // Styling matches other "placed-symbol" types
+        el.style.position = 'absolute';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.border = '2px solid #2563eb';
+        el.style.borderRadius = '4px';
+        el.style.color = '#2563eb';
+        el.style.fontFamily = "'Noto Music', serif";
+        el.style.backgroundColor = 'transparent';
+        el.style.transform = 'translate(-50%, -50%)';
+        el.style.zIndex = '50';
+        el.style.cursor = 'pointer';
+
+        if (isSelected) {
+            el.style.borderColor = '#22c55e';
+            el.style.color = '#22c55e';
+        }
+
+        PDF.overlay.appendChild(el);
     },
 
     drawTie(svg, startNote, endNote, part) {
@@ -103,7 +182,6 @@ export const NoteRenderer = {
         const part = State.parts.find(p => p.id === State.activePartId);
         
         const el = document.createElement('div');
-        // Add .selected class if selected
         if (isSelected) {
             el.classList.add('selected');
         }
@@ -114,11 +192,10 @@ export const NoteRenderer = {
             const height = Math.abs(system.bottomY - system.topY);
             const midY = system.topY + (height / 2);
             
-            // UPDATED: Full staff height scaling
             const boxHeight = height * PDF.scale;
             const boxWidth = (height * 0.6) * PDF.scale;
 
-            el.className += ' placed-time'; // Append to existing classes
+            el.className += ' placed-time'; 
             el.style.width = boxWidth + 'px';
             el.style.height = boxHeight + 'px';
             el.style.left = (unscaledX * PDF.scale) + 'px';
@@ -176,11 +253,9 @@ export const NoteRenderer = {
             let boxWidth = (height * 0.6) * PDF.scale;
 
             if (subtype === 'treble') {
-                // UPDATED Treble Clef Size
                 boxHeight = (height * 1.5) * PDF.scale; 
                 renderY = system.topY + (0.75 * height);
             } else if (subtype === 'bass') {
-                // UPDATED Bass Clef Size
                 boxHeight = (height * 0.9) * PDF.scale;
                 renderY = system.topY + (0.25 * height);
             } else if (subtype === 'c') {
@@ -214,7 +289,7 @@ export const NoteRenderer = {
 
         let renderY = unscaledY;
         let renderSize = savedSize;
-        let spaceHeight = 20; // fallback
+        let spaceHeight = 20; 
 
         if (systemId !== undefined && pitchIndex !== undefined) {
             const system = part.calibration[systemId]; 
@@ -237,18 +312,10 @@ export const NoteRenderer = {
         
         let scaledWidth, scaledHeight;
 
-        // UPDATED: Placed Note Sizing
         if (type === 'rest') {
-             // Match logic in input-manager.js
              let dur = 4;
-             if (savedSize && subtype) dur = parseInt(subtype); // use subtype as duration for rests if available
-             else if (savedSize && !subtype && State.noteDuration) dur = parseInt(State.noteDuration); // Fallback if freshly placed
-
-             // If reading from saved note, subtype usually stores duration for rests?
-             // In input manager: part.notes.push({ ... subtype: State.noteDuration ... })
-             // So note.subtype holds the duration
-             
              if (subtype) dur = parseInt(subtype);
+             else if (savedSize && !subtype && State.noteDuration) dur = parseInt(State.noteDuration);
 
              switch(dur) {
                 case 1: case 2: scaledHeight = spaceHeight * 0.5; scaledWidth = spaceHeight * 1.2; break;
