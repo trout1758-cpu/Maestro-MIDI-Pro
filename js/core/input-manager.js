@@ -63,9 +63,7 @@ export const Input = {
         this.ghostNote = document.querySelector('.ghost-note');
         if (!this.ghostNote) {
             this.ghostNote = document.createElement('div');
-            // Default state is hidden, but must be absolute to work when shown
-            this.ghostNote.className = 'ghost-note hidden pointer-events-none absolute';
-            this.ghostNote.style.zIndex = '9999';
+            this.ghostNote.className = 'ghost-note';
             const overlay = document.getElementById('overlay-layer');
             if(overlay) overlay.appendChild(this.ghostNote);
         }
@@ -228,10 +226,27 @@ export const Input = {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
 
+        // --- HAIRPINS ---
         if (State.activeTool === 'hairpin') {
+            // Note: In strict reversion, we treat hairpin as just a tool. 
+            // We return a 'dummy' note type or similar if we want it to look like a note head,
+            // OR we just return the object so the code below can decide what to do.
+            // But since you asked for it to use the "note head" logic for now:
+            const snap = ZoningEngine.calculateSnap(y);
+            if(snap) {
+                 const system = part.calibration[snap.systemId];
+                 const height = Math.abs(system.bottomY - system.topY);
+                 const noteSize = height / 4;
+                 return { 
+                    x: x, y: snap.y, size: noteSize, systemId: snap.systemId, pitchIndex: snap.pitchIndex, 
+                    duration: 'q', type: 'note', isDotted: false, accidental: null,
+                    meta: { height, noteSize } 
+                };
+            }
             return { type: 'hairpin' }; 
         }
 
+        // --- DYNAMICS (New Feature - Preserved) ---
         if (State.activeTool === 'dynamic') {
              let closestSystem = null;
              let minDistance = Infinity;
@@ -260,6 +275,7 @@ export const Input = {
 
         const zoning = ZoningEngine.checkZone(y);
 
+        // --- SYMBOLS ---
         if (State.activeTool === 'symbol') {
             if (!zoning) return null;
             const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
@@ -276,6 +292,7 @@ export const Input = {
             return null;
         }
 
+        // --- CLEFS ---
         if (State.activeTool === 'clef') {
             if (State.noteDuration === 'c') {
                 const snap = ZoningEngine.calculateSnap(y);
@@ -291,6 +308,7 @@ export const Input = {
             return null;
         }
 
+        // --- BARLINES ---
         if (State.activeTool === 'barline') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
@@ -299,6 +317,7 @@ export const Input = {
             return null;
         }
 
+        // --- TIME/KEY ---
         if (State.activeTool === 'time' || State.activeTool === 'key') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
@@ -308,6 +327,7 @@ export const Input = {
             return null;
         }
 
+        // --- NOTES/RESTS ---
         if (State.activeTool === 'note' || State.activeTool === 'rest') {
             const snap = ZoningEngine.calculateSnap(y);
             if (snap) {
@@ -346,6 +366,7 @@ export const Input = {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const part = State.parts.find(p => p.id === State.activePartId);
 
+                // --- DELETE MODE ---
                 if (State.mode === 'delete') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
@@ -357,6 +378,7 @@ export const Input = {
                     return;
                 }
 
+                // --- SELECT MODE ---
                 if (State.mode === 'select') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
@@ -395,6 +417,7 @@ export const Input = {
                     return;
                 }
 
+                // --- ADD MODE ---
                 if (State.mode === 'add') {
                     if (State.isTieMode) {
                         const clickedNote = this.findTargetNote(x, y);
@@ -414,6 +437,7 @@ export const Input = {
                         return; 
                     }
 
+                    // --- HAIRPIN DRAG START ---
                     if (State.activeTool === 'hairpin') {
                         let closestSystemId = 0;
                         let minDistance = Infinity;
@@ -428,6 +452,7 @@ export const Input = {
                         return;
                     }
 
+                    // --- STANDARD ITEM PLACEMENT ---
                     const item = this.calculatePlacement(x, y);
                     if (item) {
                         this.saveState();
@@ -489,7 +514,7 @@ export const Input = {
                     width: width,
                     systemId: this.hairpinStart.systemId,
                     type: 'hairpin',
-                    subtype: State.noteDuration
+                    subtype: State.noteDuration // 'crescendo' or 'diminuendo'
                 });
                 NoteRenderer.renderAll();
             }
@@ -566,6 +591,7 @@ export const Input = {
                  } 
                  else if (n.type === 'dynamic' || n.type === 'hairpin') {
                      n.y += dy;
+                     // For free-floating items, re-check systemId association
                      const part = State.parts.find(p => p.id === State.activePartId);
                      let closestSystemId = n.systemId;
                      let minDistance = Infinity;
@@ -630,14 +656,15 @@ export const Input = {
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
                 
+                // Re-init check
                 if (!this.ghostNote) this.initGhostNote();
 
-                // Clear & Reset Base Styling - FORCE absolute and pointer-events-none
-                this.ghostNote.className = 'ghost-note absolute pointer-events-none'; 
+                // Clear
+                this.ghostNote.className = 'ghost-note'; 
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
-                this.ghostNote.style.zIndex = '9999';
 
+                // Hairpin Drag Visual
                 if (this.isDraggingHairpin && this.hairpinStart) {
                     this.ghostNote.classList.remove('visible');
                     const svgLayer = document.querySelector('#overlay-layer svg');
@@ -671,7 +698,9 @@ export const Input = {
                     return;
                 }
 
+                // HIDE GHOST FOR HAIRPINS
                 if (item.type === 'hairpin') {
+                    // Reverted Logic: Only show pitch if it's a note, but hide visual for hairpin
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                     return;
@@ -683,7 +712,7 @@ export const Input = {
                 if (item.type === 'dynamic') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 1.5) * PDF.scale;
-                    this.ghostNote.className = 'ghost-note ghost-dynamic visible absolute pointer-events-none text-blue-600';
+                    this.ghostNote.classList.add('visible', 'ghost-dynamic');
                     this.ghostNote.innerText = item.subtype;
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
@@ -697,7 +726,7 @@ export const Input = {
                 
                 // Barline
                 if (item.type === 'barline') {
-                    this.ghostNote.className = `ghost-note ghost-barline ${item.subtype} visible absolute pointer-events-none`;
+                    this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
@@ -708,9 +737,8 @@ export const Input = {
 
                 // Clef
                 if (item.type === 'clef') {
-                    // Added absolute pointer-events-none to these definitions
                     if (item.subtype === 'c') {
-                        this.ghostNote.className = 'ghost-note ghost-clef c visible absolute pointer-events-none text-blue-600';
+                        this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
                         this.ghostNote.innerText = '┌';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.5 * PDF.scale) + 'px';
@@ -719,7 +747,7 @@ export const Input = {
                         this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     } else {
-                        this.ghostNote.className = 'ghost-note ghost-clef visible absolute pointer-events-none text-blue-600';
+                        this.ghostNote.classList.add('visible', 'ghost-clef');
                         this.ghostNote.innerText = (item.subtype === 'treble') ? '' : '┐';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.6 * PDF.scale) + 'px';
@@ -734,7 +762,7 @@ export const Input = {
 
                 // Symbol
                 if (item.type === 'symbol') {
-                    this.ghostNote.className = 'ghost-note ghost-symbol visible absolute pointer-events-none text-blue-600';
+                    this.ghostNote.classList.add('visible', 'ghost-symbol');
                     this.ghostNote.innerText = (item.subtype === 'segno') ? 'щ' : 'ъ';
                     this.ghostNote.style.fontSize = (item.meta.height * 0.5 * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
@@ -748,7 +776,7 @@ export const Input = {
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
-                    this.ghostNote.className = `ghost-note ${(item.type === 'time' ? 'ghost-time' : 'ghost-key')} visible absolute pointer-events-none text-blue-600`;
+                    this.ghostNote.classList.add('visible', (item.type === 'time' ? 'ghost-time' : 'ghost-key'));
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
@@ -783,13 +811,12 @@ export const Input = {
                     const accidentalClass = item.accidental ? ` accidental-${item.accidental}` : '';
 
                     if (item.type === 'rest') {
-                        this.ghostNote.className = 'ghost-note rest visible absolute pointer-events-none' + dottedClass + accidentalClass;
+                        this.ghostNote.className = 'ghost-note rest visible' + dottedClass + accidentalClass;
                         this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; 
                         this.ghostNote.style.borderRadius = '0';
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
-                        ToolbarView.updatePitch("-");
                     } else {
-                        this.ghostNote.className = 'ghost-note note-head visible absolute pointer-events-none bg-blue-600' + dottedClass + accidentalClass;
+                        this.ghostNote.className = 'ghost-note note-head visible' + dottedClass + accidentalClass;
                         this.ghostNote.style.borderRadius = '50%';
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
                     }
@@ -798,6 +825,14 @@ export const Input = {
                     this.ghostNote.style.height = visualHeight + 'px'; 
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
+                    
+                    // RESTORED: This line caused the crash previously, but is now safe
+                    // because we added getPitchName to Utils.js
+                    if (item.type === 'note') {
+                         ToolbarView.updatePitch(Utils.getPitchName(item.pitchIndex, item.systemId));
+                    } else {
+                         ToolbarView.updatePitch("-");
+                    }
                 }
 
             } else {
