@@ -24,8 +24,10 @@ export const Utils = {
         const steps = Math.abs(stepsDown);
         for(let i=0; i<steps; i++) {
             currentMidi += direction;
-            while(!whiteKeys.includes(currentMidi % 12)) currentMidi += direction;
+            while(!whiteKeys.includes(((currentMidi % 12) + 12) % 12)) currentMidi += direction;
         }
-        return CONFIG.NOTE_NAMES[currentMidi % 12];
+        // Safety fix: Ensure the index is always positive [0-11]
+        const noteIndex = ((currentMidi % 12) + 12) % 12;
+        return CONFIG.NOTE_NAMES[noteIndex];
     }
 };
