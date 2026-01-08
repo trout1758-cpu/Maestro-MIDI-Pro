@@ -60,13 +60,23 @@ export const Input = {
     },
 
     initGhostNote() {
-        this.ghostNote = document.querySelector('.ghost-note');
-        if (!this.ghostNote) {
-            this.ghostNote = document.createElement('div');
-            this.ghostNote.className = 'ghost-note';
-            const overlay = document.getElementById('overlay-layer');
-            if(overlay) overlay.appendChild(this.ghostNote);
+        // Ensure we don't have duplicates
+        const existing = document.querySelectorAll('.ghost-note');
+        if (existing.length > 0) {
+            this.ghostNote = existing[0];
+            return;
         }
+
+        this.ghostNote = document.createElement('div');
+        this.ghostNote.className = 'ghost-note';
+        // FORCE visibility styles to ensure it's not a CSS issue
+        this.ghostNote.style.position = 'absolute';
+        this.ghostNote.style.pointerEvents = 'none';
+        this.ghostNote.style.zIndex = '9999';
+        this.ghostNote.style.display = 'none'; // Start hidden
+
+        const overlay = document.getElementById('overlay-layer');
+        if(overlay) overlay.appendChild(this.ghostNote);
     },
 
     saveState() {
@@ -228,10 +238,6 @@ export const Input = {
 
         // --- HAIRPINS ---
         if (State.activeTool === 'hairpin') {
-            // Note: In strict reversion, we treat hairpin as just a tool. 
-            // We return a 'dummy' note type or similar if we want it to look like a note head,
-            // OR we just return the object so the code below can decide what to do.
-            // But since you asked for it to use the "note head" logic for now:
             const snap = ZoningEngine.calculateSnap(y);
             if(snap) {
                  const system = part.calibration[snap.systemId];
@@ -633,12 +639,12 @@ export const Input = {
             }
             this.lastX = e.clientX;
             this.lastY = e.clientY;
-            if(this.ghostNote) this.ghostNote.classList.remove('visible');
+            this.ghostNote.style.display = 'none'; // Replaced classList.remove
             return;
         }
         
         if (State.isCalibrating) {
-            if (this.ghostNote) this.ghostNote.classList.remove('visible');
+            this.ghostNote.style.display = 'none';
             const rect = PDF.overlay.getBoundingClientRect(); 
             const isOver = Utils.checkCanvasBounds(e, rect);
             if (isOver || CalibrationController.draggingLine) {
@@ -649,7 +655,7 @@ export const Input = {
 
         if (State.activePartId && !this.isSpace) {
             if (State.isTieMode || State.mode === 'delete' || State.mode === 'select') {
-                if(this.ghostNote) this.ghostNote.classList.remove('visible');
+                this.ghostNote.style.display = 'none';
                 return; 
             }
             
@@ -662,11 +668,11 @@ export const Input = {
                 // Clear
                 this.ghostNote.className = 'ghost-note'; 
                 this.ghostNote.innerText = '';
-                this.ghostNote.style = '';
+                this.ghostNote.style.display = 'none'; // Default to hidden
 
                 // Hairpin Drag Visual
                 if (this.isDraggingHairpin && this.hairpinStart) {
-                    this.ghostNote.classList.remove('visible');
+                    this.ghostNote.style.display = 'none';
                     const svgLayer = document.querySelector('#overlay-layer svg');
                     if (svgLayer) {
                         if (!this.tempHairpin) {
@@ -693,15 +699,13 @@ export const Input = {
                 const item = this.calculatePlacement(x, y);
 
                 if (!item) {
-                    this.ghostNote.classList.remove('visible');
+                    this.ghostNote.style.display = 'none';
                     ToolbarView.updatePitch("-");
                     return;
                 }
 
-                // HIDE GHOST FOR HAIRPINS
                 if (item.type === 'hairpin') {
-                    // Reverted Logic: Only show pitch if it's a note, but hide visual for hairpin
-                    this.ghostNote.classList.remove('visible');
+                    this.ghostNote.style.display = 'none';
                     ToolbarView.updatePitch("-");
                     return;
                 }
@@ -712,7 +716,8 @@ export const Input = {
                 if (item.type === 'dynamic') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 1.5) * PDF.scale;
-                    this.ghostNote.classList.add('visible', 'ghost-dynamic');
+                    this.ghostNote.className = 'ghost-note ghost-dynamic visible';
+                    this.ghostNote.style.display = 'flex'; // FORCE flex for dynamics
                     this.ghostNote.innerText = item.subtype;
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
@@ -726,7 +731,8 @@ export const Input = {
                 
                 // Barline
                 if (item.type === 'barline') {
-                    this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
+                    this.ghostNote.className = `ghost-note ghost-barline ${item.subtype} visible`;
+                    this.ghostNote.style.display = 'block'; // FORCE block
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
@@ -738,7 +744,8 @@ export const Input = {
                 // Clef
                 if (item.type === 'clef') {
                     if (item.subtype === 'c') {
-                        this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
+                        this.ghostNote.className = 'ghost-note ghost-clef c visible';
+                        this.ghostNote.style.display = 'flex'; // FORCE flex
                         this.ghostNote.innerText = '┌';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.5 * PDF.scale) + 'px';
@@ -747,7 +754,8 @@ export const Input = {
                         this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     } else {
-                        this.ghostNote.classList.add('visible', 'ghost-clef');
+                        this.ghostNote.className = 'ghost-note ghost-clef visible';
+                        this.ghostNote.style.display = 'flex'; // FORCE flex
                         this.ghostNote.innerText = (item.subtype === 'treble') ? '' : '┐';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.6 * PDF.scale) + 'px';
@@ -762,7 +770,8 @@ export const Input = {
 
                 // Symbol
                 if (item.type === 'symbol') {
-                    this.ghostNote.classList.add('visible', 'ghost-symbol');
+                    this.ghostNote.className = 'ghost-note ghost-symbol visible';
+                    this.ghostNote.style.display = 'flex'; // FORCE flex
                     this.ghostNote.innerText = (item.subtype === 'segno') ? 'щ' : 'ъ';
                     this.ghostNote.style.fontSize = (item.meta.height * 0.5 * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
@@ -776,7 +785,8 @@ export const Input = {
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
-                    this.ghostNote.classList.add('visible', (item.type === 'time' ? 'ghost-time' : 'ghost-key'));
+                    this.ghostNote.className = `ghost-note ${(item.type === 'time' ? 'ghost-time' : 'ghost-key')} visible`;
+                    this.ghostNote.style.display = 'block'; // FORCE block
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
@@ -812,11 +822,13 @@ export const Input = {
 
                     if (item.type === 'rest') {
                         this.ghostNote.className = 'ghost-note rest visible' + dottedClass + accidentalClass;
+                        this.ghostNote.style.display = 'flex'; // FORCE flex for rests
                         this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; 
                         this.ghostNote.style.borderRadius = '0';
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     } else {
                         this.ghostNote.className = 'ghost-note note-head visible' + dottedClass + accidentalClass;
+                        this.ghostNote.style.display = 'block'; // FORCE block for note heads
                         this.ghostNote.style.borderRadius = '50%';
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
                     }
@@ -826,8 +838,6 @@ export const Input = {
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
                     
-                    // RESTORED: This line caused the crash previously, but is now safe
-                    // because we added getPitchName to Utils.js
                     if (item.type === 'note') {
                          ToolbarView.updatePitch(Utils.getPitchName(item.pitchIndex, item.systemId));
                     } else {
@@ -836,7 +846,7 @@ export const Input = {
                 }
 
             } else {
-                if(this.ghostNote) this.ghostNote.classList.remove('visible');
+                this.ghostNote.style.display = 'none';
                 ToolbarView.updatePitch("-");
             }
         }
