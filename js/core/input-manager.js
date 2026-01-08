@@ -60,13 +60,13 @@ export const Input = {
     },
 
     initGhostNote() {
-        if (!document.querySelector('.ghost-note')) {
+        // Ensure we find or create the ghost note
+        this.ghostNote = document.querySelector('.ghost-note');
+        if (!this.ghostNote) {
             this.ghostNote = document.createElement('div');
             this.ghostNote.className = 'ghost-note';
             const overlay = document.getElementById('overlay-layer');
             if(overlay) overlay.appendChild(this.ghostNote);
-        } else {
-            this.ghostNote = document.querySelector('.ghost-note');
         }
     },
 
@@ -223,27 +223,47 @@ export const Input = {
         return closest;
     },
 
+    // UNIFIED PLACEMENT CALCULATOR
     calculatePlacement(x, y) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
 
-        const zoning = ZoningEngine.checkZone(y);
-        
+        // --- HAIRPINS (Explicitly no ghost) ---
+        if (State.activeTool === 'hairpin') {
+            return { type: 'hairpin' }; // Signal it exists but handles differently
+        }
+
         // --- DYNAMICS (Text) ---
+        // Free-floating but associated with a zone
         if (State.activeTool === 'dynamic') {
-             if (zoning) {
-                const height = Math.abs(zoning.bottomY - zoning.topY);
-                // Center vertically in the zone for the box logic
-                const midY = zoning.topY + (height / 2);
-                return { x, y: midY, systemId: zoning.id, type: 'dynamic', subtype: State.noteDuration, meta: { height } };
+             // Find closest system to associate with
+             let closestSystem = null;
+             let minDistance = Infinity;
+             
+             part.calibration.forEach((sys, idx) => {
+                 const sysMid = (sys.topY + sys.bottomY) / 2;
+                 const dist = Math.abs(y - sysMid);
+                 if (dist < minDistance) {
+                     minDistance = dist;
+                     closestSystem = { ...sys, id: idx };
+                 }
+             });
+
+             if (closestSystem) {
+                const height = Math.abs(closestSystem.bottomY - closestSystem.topY);
+                return { 
+                    x: x, 
+                    y: y, // Free vertical placement
+                    systemId: closestSystem.id, 
+                    type: 'dynamic', 
+                    subtype: State.noteDuration, 
+                    meta: { height } 
+                };
              }
              return null;
         }
 
-        // --- HAIRPINS (No ghost) ---
-        if (State.activeTool === 'hairpin') {
-            return null; // Hairpins don't have standard ghost logic
-        }
+        const zoning = ZoningEngine.checkZone(y);
 
         // --- SYMBOLS ---
         if (State.activeTool === 'symbol') {
@@ -267,8 +287,7 @@ export const Input = {
             if (State.noteDuration === 'c') {
                 const snap = ZoningEngine.calculateSnap(y);
                 if(snap) {
-                    const system = part.calibration[snap.systemId];
-                    const height = Math.abs(system.bottomY - system.topY);
+                    const height = Math.abs(part.calibration[snap.systemId].bottomY - part.calibration[snap.systemId].topY);
                     return { x, y: snap.y, pitchIndex: snap.pitchIndex, systemId: snap.systemId, type: 'clef', subtype: 'c', meta: { height } };
                 }
                 return null;
@@ -392,7 +411,6 @@ export const Input = {
                         if (clickedNote && clickedNote.type === 'note') {
                             this.isDraggingTie = true;
                             this.tieStartNote = clickedNote;
-                            // Create SVG path logic...
                             const svgLayer = document.querySelector('#overlay-layer svg');
                             if (svgLayer) {
                                 this.tempTiePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -406,15 +424,19 @@ export const Input = {
                         return; 
                     }
 
-                    // --- HAIRPIN LOGIC START ---
+                    // --- HAIRPIN DRAG START ---
                     if (State.activeTool === 'hairpin') {
-                        const zoning = ZoningEngine.checkZone(y);
-                        if (zoning) {
-                            this.isDraggingHairpin = true;
-                            this.hairpinStart = { x: x, y: y, systemId: zoning.id };
-                            // Initial visual feedback could go here if desired, 
-                            // but usually starts on move to avoid flickering on mere clicks.
-                        }
+                        // For hairpins, also associate with closest system for export grouping
+                        let closestSystemId = 0;
+                        let minDistance = Infinity;
+                        part.calibration.forEach((sys, idx) => {
+                             const sysMid = (sys.topY + sys.bottomY) / 2;
+                             const dist = Math.abs(y - sysMid);
+                             if (dist < minDistance) { minDistance = dist; closestSystemId = idx; }
+                        });
+
+                        this.isDraggingHairpin = true;
+                        this.hairpinStart = { x: x, y: y, systemId: closestSystemId };
                         return;
                     }
 
@@ -461,21 +483,16 @@ export const Input = {
             }
         }
 
-        // --- HAIRPIN LOGIC END ---
         if (this.isDraggingHairpin) {
             this.isDraggingHairpin = false;
-            
             if (this.tempHairpin) {
                 this.tempHairpin.remove();
                 this.tempHairpin = null;
             }
-
             const { x } = Utils.getPdfCoords(e, PDF.scale);
-            // Calculate final width
             let width = x - this.hairpinStart.x;
-            if (width < 5) width = 0; // Ignore tiny drags
+            if (width < 5) width = 0; 
 
-            // Only allow forward dragging per user request
             if (width > 0) {
                 this.saveState();
                 const part = State.parts.find(p => p.id === State.activePartId);
@@ -558,16 +575,33 @@ export const Input = {
                          n.y = snappedY;
                          n.pitchIndex = newPitchIndex;
                          n.systemId = zone.id;
-                     } else {
-                         n.y = newY; 
-                     }
-                 } else {
+                     } else { n.y = newY; }
+                 } 
+                 else if (n.type === 'dynamic' || n.type === 'hairpin') {
+                     n.y += dy;
+                     const part = State.parts.find(p => p.id === State.activePartId);
+                     let closestSystemId = n.systemId;
+                     let minDistance = Infinity;
+                     part.calibration.forEach((sys, idx) => {
+                         const sysMid = (sys.topY + sys.bottomY) / 2;
+                         const dist = Math.abs(n.y - sysMid);
+                         if (dist < minDistance) { minDistance = dist; closestSystemId = idx; }
+                     });
+                     n.systemId = closestSystemId;
+                 }
+                 else {
                      const zone = ZoningEngine.checkZone(n.y + dy);
                      if (zone && zone.id !== n.systemId) {
                          const height = Math.abs(zone.bottomY - zone.topY);
                          n.systemId = zone.id;
                          if (n.type === 'barline') n.y = zone.topY;
-                         if (n.type === 'time' || n.type === 'key' || n.type === 'dynamic') n.y = zone.topY + (height / 2); // Dynamic centers
+                         if (n.type === 'time' || n.type === 'key') n.y = zone.topY + (height / 2);
+                         if (n.type === 'clef') {
+                             const step = height / 8;
+                             if (n.subtype === 'treble') n.y = zone.topY + (6 * step);
+                             else if (n.subtype === 'bass') n.y = zone.topY + (2 * step);
+                         }
+                         if (n.type === 'symbol') n.y = zone.topY - (height * 0.25);
                      }
                  }
              });
@@ -608,49 +642,44 @@ export const Input = {
             
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
+                
+                // Re-initialize ghost element just in case it was lost
+                if (!this.ghostNote) {
+                    this.ghostNote = document.querySelector('.ghost-note');
+                    if (!this.ghostNote) this.initGhostNote();
+                }
+
+                // Reset styles
                 this.ghostNote.className = 'ghost-note'; 
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
 
-                // --- HAIRPIN DRAGGING ---
+                // Hairpin Drag Visuals
                 if (this.isDraggingHairpin && this.hairpinStart) {
                     this.ghostNote.classList.remove('visible');
-                    
                     const svgLayer = document.querySelector('#overlay-layer svg');
                     if (svgLayer) {
                         if (!this.tempHairpin) {
-                            // Create the SVG line/path for visual feedback
                             this.tempHairpin = document.createElementNS("http://www.w3.org/2000/svg", "path");
                             this.tempHairpin.setAttribute("stroke", "#2563eb");
                             this.tempHairpin.setAttribute("stroke-width", "2");
                             this.tempHairpin.setAttribute("fill", "none");
                             svgLayer.appendChild(this.tempHairpin);
                         }
-
-                        // Calculate geometry relative to start
                         let width = (x - this.hairpinStart.x) * PDF.scale;
-                        // Clamp to 0 (no backward dragging)
                         if (width < 0) width = 0;
-
                         const startX = this.hairpinStart.x * PDF.scale;
                         const startY = this.hairpinStart.y * PDF.scale;
-                        
-                        // Hairpin height roughly 20px
                         const h = 10 * PDF.scale; 
-
-                        // Draw V shape
                         if (State.noteDuration === 'crescendo') {
-                            // < shape: closed at left, open at right
                             this.tempHairpin.setAttribute("d", `M ${startX+width} ${startY-h} L ${startX} ${startY} L ${startX+width} ${startY+h}`);
                         } else {
-                            // > shape: open at left, closed at right
                             this.tempHairpin.setAttribute("d", `M ${startX} ${startY-h} L ${startX+width} ${startY} L ${startX} ${startY+h}`);
                         }
                     }
                     return;
                 }
 
-                // --- GHOST LOGIC ---
                 const item = this.calculatePlacement(x, y);
 
                 if (!item) {
@@ -659,26 +688,32 @@ export const Input = {
                     return;
                 }
 
-                // Specific Ghost Styling
+                // Explicit check for hairpin: NO GHOST
+                if (item.type === 'hairpin') {
+                    this.ghostNote.classList.remove('visible');
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
+                // --- GHOST RENDER LOGIC ---
+
+                // Dynamics (Box Border style like Time Sig)
                 if (item.type === 'dynamic') {
-                    // Similar to time sig ghost
                     const boxHeight = item.meta.height * PDF.scale;
-                    // Dynamics text can be wider
-                    const boxWidth = (item.meta.height * 1.5) * PDF.scale; 
-                    
+                    const boxWidth = (item.meta.height * 1.5) * PDF.scale;
                     this.ghostNote.classList.add('visible', 'ghost-dynamic');
-                    this.ghostNote.innerText = item.subtype; // "mf", "p", etc.
+                    this.ghostNote.innerText = item.subtype;
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
-                    this.ghostNote.style.fontSize = (boxHeight * 0.6) + 'px'; // Scale font
+                    this.ghostNote.style.fontSize = (boxHeight * 0.6) + 'px';
                     this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     ToolbarView.updatePitch("-");
                     return;
                 }
                 
-                // ... Existing ghosts ...
+                // ... REST OF THE GHOSTS ...
                 if (item.type === 'barline') {
                     this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
@@ -688,6 +723,7 @@ export const Input = {
                     ToolbarView.updatePitch("-");
                     return;
                 }
+
                 if (item.type === 'clef') {
                     if (item.subtype === 'c') {
                         this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
@@ -711,6 +747,7 @@ export const Input = {
                     ToolbarView.updatePitch("-");
                     return;
                 }
+
                 if (item.type === 'symbol') {
                     this.ghostNote.classList.add('visible', 'ghost-symbol');
                     this.ghostNote.innerText = (item.subtype === 'segno') ? '𝄋' : '𝄌';
@@ -721,6 +758,7 @@ export const Input = {
                     ToolbarView.updatePitch("-");
                     return;
                 }
+
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
@@ -733,9 +771,11 @@ export const Input = {
                     ToolbarView.updatePitch("-");
                     return;
                 }
+
                 if (item.type === 'note' || item.type === 'rest') {
                     let visualWidth, visualHeight;
                     const noteSize = item.meta.noteSize;
+                    
                     if (item.type === 'rest') {
                         const dur = parseInt(item.duration);
                          switch(dur) {
@@ -751,6 +791,7 @@ export const Input = {
                     }
                     visualHeight *= PDF.scale;
                     visualWidth *= PDF.scale;
+                    
                     const dottedClass = item.isDotted ? ' dotted' : '';
                     const accidentalClass = item.accidental ? ` accidental-${item.accidental}` : '';
 
@@ -764,16 +805,19 @@ export const Input = {
                         this.ghostNote.style.borderRadius = '50%';
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
                     }
+                    
                     this.ghostNote.style.width = visualWidth + 'px'; 
                     this.ghostNote.style.height = visualHeight + 'px'; 
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
+                    
                     if (item.type === 'note') {
                          ToolbarView.updatePitch(Utils.getPitchName(item.pitchIndex, item.systemId));
                     } else {
                          ToolbarView.updatePitch("-");
                     }
                 }
+
             } else {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 ToolbarView.updatePitch("-");
@@ -781,5 +825,3 @@ export const Input = {
         }
     }
 };
-
-
