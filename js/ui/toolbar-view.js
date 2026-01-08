@@ -58,10 +58,12 @@ export const ToolbarView = {
         State.selectedNotes = []; 
         NoteRenderer.renderAll();
         
+        // Reset Header Visuals
         document.querySelectorAll('.header-tool-btn').forEach(b => {
             b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
             b.classList.add('text-gray-600', 'hover:bg-gray-100');
             
+            // Specifically reset delete button color
             if (b.id === 'delete-mode-btn') {
                  b.classList.remove('bg-red-600', 'text-white');
                  b.classList.add('text-red-600', 'border-red-200');
@@ -69,6 +71,9 @@ export const ToolbarView = {
         });
 
         document.getElementById('control-deck').classList.remove('selection-mode-active');
+        
+        // TODO: Ideally restore active tool visuals here, but for now we leave them cleared 
+        // to avoid incorrect state assumptions.
     },
 
     toggleSelectMode(btn) {
@@ -77,9 +82,12 @@ export const ToolbarView = {
         } else {
             State.mode = 'select';
             
+            // 1. Highlight Select Button
             document.querySelectorAll('.header-tool-btn').forEach(b => {
                 b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
                 b.classList.add('text-gray-600');
+                
+                // Ensure delete button is reset
                 if (b.id === 'delete-mode-btn') {
                      b.classList.remove('bg-red-600', 'text-white');
                      b.classList.add('text-red-600', 'border-red-200');
@@ -90,9 +98,15 @@ export const ToolbarView = {
             
             document.getElementById('control-deck').classList.add('selection-mode-active');
             
+            // 2. Deselect ALL Tool Buttons (Notes, Rests, Clefs)
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            
+            // 3. Deselect Modifier Buttons (Accidentals, Dots, Ties)
+            // Note: We select by class or attribute. Assuming accidentals have 'accidental-btn' class.
+            // Dots typically don't have a unique class other than the onclick, but we can query by button inside control-deck
             const deck = document.getElementById('control-deck');
             if (deck) {
+                // Remove 'active' class (blue styling) from ALL buttons in the deck
                 deck.querySelectorAll('.maestro-btn').forEach(b => {
                     b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
                 });
@@ -125,12 +139,14 @@ export const ToolbarView = {
             btn.classList.remove('text-red-600');
             btn.classList.add('active', 'bg-red-600', 'text-white', 'hover:bg-red-700');
             
+            // Clear selections
             State.selectedNotes = [];
             NoteRenderer.renderAll();
         }
     },
 
     selectTool(tool, subtype, btn) {
+        // --- SMART EDIT LOGIC ---
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
              Input.saveState(); 
              let modificationsMade = false;
@@ -164,6 +180,7 @@ export const ToolbarView = {
              
              if (modificationsMade) {
                  NoteRenderer.renderAll();
+                 // VISUAL FLASH
                  if (btn) {
                      btn.classList.add('flash-active');
                      setTimeout(() => btn.classList.remove('flash-active'), 150);
@@ -172,6 +189,7 @@ export const ToolbarView = {
              return; 
         }
         
+        // --- STANDARD TOOL SELECTION ---
         if (State.mode !== 'add') {
             this.setAddMode();
         }
@@ -184,6 +202,7 @@ export const ToolbarView = {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if(btn) btn.classList.add('active');
 
+        // Toggle Accidentals State
         const accidentals = document.querySelectorAll('.accidental-btn');
         if (tool === 'note') {
             accidentals.forEach(b => {
@@ -201,6 +220,7 @@ export const ToolbarView = {
     },
 
     toggleDot(btn) {
+        // Smart Edit: Dot
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
             let changed = false;
@@ -231,6 +251,7 @@ export const ToolbarView = {
     toggleAccidental(type, btn) {
         if (btn.classList.contains('placeholder')) return;
         
+        // Smart Edit: Accidental
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
             let changed = false;
