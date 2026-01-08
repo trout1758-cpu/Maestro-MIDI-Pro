@@ -23,7 +23,22 @@ export const ExportManager = {
             const systemOrderMap = {};
             systems.forEach((sys, orderIdx) => { systemOrderMap[sys.originalId] = orderIdx; });
 
-            const sortedNotes = part.notes.sort((a, b) => {
+            // Sort logic extended to include hairpins and dynamics
+            const sortedItems = [...part.notes];
+            
+            // For hairpins, we must inject a separate "Stop Wedge" event
+            part.notes.forEach(note => {
+                if (note.type === 'hairpin') {
+                    // Create a virtual stop event
+                    sortedItems.push({
+                        ...note,
+                        x: note.x + note.width,
+                        virtualType: 'hairpin-stop'
+                    });
+                }
+            });
+
+            sortedItems.sort((a, b) => {
                 const sysA = systemOrderMap[a.systemId];
                 const sysB = systemOrderMap[b.systemId];
                 if (sysA !== sysB) return sysA - sysB; 
@@ -31,6 +46,8 @@ export const ExportManager = {
                     const getPriority = (type) => {
                         if (type === 'barline') return 0;
                         if (type === 'clef' || type === 'key' || type === 'time') return 1;
+                        if (type === 'hairpin') return 1.5; // Directions usually before notes
+                        if (type === 'dynamic') return 1.5;
                         if (type === 'symbol') return 2;
                         return 3; 
                     };
@@ -47,8 +64,8 @@ export const ExportManager = {
             let currentBeatType = 4;
             let currentFifths = 0;
 
-            for (let i = 0; i < sortedNotes.length; i++) {
-                const n = sortedNotes[i];
+            for (let i = 0; i < sortedItems.length; i++) {
+                const n = sortedItems[i];
                 if (n.type === 'note' || n.type === 'rest' || n.type === 'barline') break;
                 if (n.type === 'time') { const [b, bt] = n.subtype.split('/'); currentBeats = parseInt(b); currentBeatType = parseInt(bt); }
                 if (n.type === 'key') {
@@ -65,16 +82,34 @@ export const ExportManager = {
             let measureNum = 1;
             xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>${currentFifths}</fifths></key>\n        <time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time>\n        <clef>\n          <sign>${currentClefType === 'treble' ? 'G' : (currentClefType === 'bass' ? 'F' : 'C')}</sign>\n          <line>${currentClefType === 'treble' ? '2' : (currentClefType === 'bass' ? '4' : '3')}</line>\n        </clef>\n      </attributes>\n`;
             
-            for (let i = 0; i < sortedNotes.length; i++) {
-                const note = sortedNotes[i];
-                const prevNote = i > 0 ? sortedNotes[i-1] : null;
-                const nextNote = i < sortedNotes.length - 1 ? sortedNotes[i+1] : null;
+            for (let i = 0; i < sortedItems.length; i++) {
+                const note = sortedItems[i];
+                const prevNote = i > 0 ? sortedItems[i-1] : null;
+                const nextNote = i < sortedItems.length - 1 ? sortedItems[i+1] : null;
 
                 if (note.type === 'time') { const [beats, beatType] = note.subtype.split('/'); currentBeats = parseInt(beats); currentBeatType = parseInt(beatType); xml += `      <attributes><time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time></attributes>\n`; continue; }
                 if (note.type === 'key') { const keyMap = { 'C': 0, 'A': 3, 'B': 5, 'D': 2, 'E': 4, 'F': -1, 'G': 1, 'C#': 7, 'F#': 6, 'G#': 8, 'D#': 9, 'A#': 10, 'E#': 11, 'B#': 12, 'Cb': -7, 'Gb': -6, 'Db': -5, 'Ab': -4, 'Eb': -3, 'Bb': -2, 'Fb': -8 }; let newFifths = 0; if (keyMap.hasOwnProperty(note.subtype)) newFifths = keyMap[note.subtype]; currentFifths = newFifths; xml += `      <attributes><key><fifths>${currentFifths}</fifths></key></attributes>\n`; continue; }
                 if (note.type === 'symbol') { if (note.subtype === 'segno') xml += `      <direction placement="above"><direction-type><segno/></direction-type></direction>\n`; else if (note.subtype === 'coda') xml += `      <direction placement="above"><direction-type><coda/></direction-type></direction>\n`; continue; }
                 if (note.type === 'clef') { let sign = 'G'; let line = '2'; if (note.subtype === 'treble') { sign = 'G'; line = '2'; currentClefType = 'treble'; } else if (note.subtype === 'bass') { sign = 'F'; line = '4'; currentClefType = 'bass'; } else if (note.subtype === 'c') { sign = 'C'; line = Math.round(5 - (note.pitchIndex / 2)); currentClefType = 'alto'; } xml += `      <attributes><clef><sign>${sign}</sign><line>${line}</line></clef></attributes>\n`; continue; }
                 if (note.type === 'barline') { let barlineXML = ''; if (note.subtype === 'double') barlineXML = '<barline location="right"><bar-style>light-light</bar-style></barline>'; else if (note.subtype === 'final') barlineXML = '<barline location="right"><bar-style>light-heavy</bar-style></barline>'; else if (note.subtype === 'repeat') barlineXML = '<barline location="right"><bar-style>light-heavy</bar-style><repeat direction="backward"/></barline>'; if (barlineXML) xml += `      ${barlineXML}\n`; xml += `    </measure>\n`; measureNum++; xml += `    <measure number="${measureNum}">\n`; continue; }
+
+                // --- NEW EXPORT LOGIC FOR DYNAMICS ---
+                if (note.type === 'dynamic') {
+                    xml += `      <direction placement="below">\n        <direction-type>\n          <dynamics><${note.subtype}/></dynamics>\n        </direction-type>\n      </direction>\n`;
+                    continue;
+                }
+
+                // --- NEW EXPORT LOGIC FOR HAIRPINS ---
+                if (note.type === 'hairpin') {
+                    const wedgeType = note.subtype; // crescendo or diminuendo
+                    xml += `      <direction placement="below">\n        <direction-type>\n          <wedge type="${wedgeType}" number="1" default-y="-80"/>\n        </direction-type>\n      </direction>\n`;
+                    continue;
+                }
+
+                if (note.virtualType === 'hairpin-stop') {
+                    xml += `      <direction placement="below">\n        <direction-type>\n          <wedge type="stop" number="1"/>\n        </direction-type>\n      </direction>\n`;
+                    continue;
+                }
 
                 let isChord = false;
                 let isVoice2 = false;
@@ -107,12 +142,11 @@ export const ExportManager = {
                 
                 const typeName = note.duration === 1 ? 'whole' : note.duration === 2 ? 'half' : note.duration === 4 ? 'quarter' : note.duration === 8 ? 'eighth' : '16th';
 
-                // --- TIE LOGIC ---
                 const tieStart = note.hasTie;
                 let tieStop = false;
                 if (note.type === 'note') {
                     for (let j = i - 1; j >= 0; j--) {
-                        const cand = sortedNotes[j];
+                        const cand = sortedItems[j];
                         if (cand.type === 'note') {
                             if (cand.pitchIndex === note.pitchIndex) {
                                 if (cand.hasTie) {
