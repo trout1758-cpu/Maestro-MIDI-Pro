@@ -38,8 +38,8 @@ export const ExportManager = {
                     const getPriority = (type) => {
                         if (type === 'barline') return 0;
                         if (type === 'clef' || type === 'key' || type === 'time') return 1;
-                        if (type === 'hairpin') return 1.5; // Start hairpin before notes
-                        if (type === 'dynamic') return 1.6; // Dynamics before notes
+                        if (type === 'hairpin') return 1.5; 
+                        if (type === 'dynamic') return 1.6; 
                         if (type === 'symbol') return 2;
                         return 3; 
                     };
@@ -81,8 +81,6 @@ export const ExportManager = {
             xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>${currentFifths}</fifths></key>\n        <time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time>\n        <clef>\n          <sign>${currentClefType === 'treble' ? 'G' : (currentClefType === 'bass' ? 'F' : 'C')}</sign>\n          <line>${currentClefType === 'treble' ? '2' : (currentClefType === 'bass' ? '4' : '3')}</line>\n        </clef>\n      </attributes>\n`;
             
             // --- STEP 3: MAIN PROCESSING LOOP ---
-            // We need to track active hairpins to close them at the right time
-            // Strategy: Store pending 'wedge stops' with their target X coordinate
             let pendingWedges = []; 
 
             for (let i = 0; i < sortedNotes.length; i++) {
@@ -90,11 +88,8 @@ export const ExportManager = {
                 const prevNote = i > 0 ? sortedNotes[i-1] : null;
                 const nextNote = i < sortedNotes.length - 1 ? sortedNotes[i+1] : null;
 
-                // CHECK PENDING WEDGES (Stop them if we've passed their end X)
-                // We check if current note X is past the target X
                 for (let w = pendingWedges.length - 1; w >= 0; w--) {
                     if (note.x >= pendingWedges[w].endX || note.type === 'barline') {
-                        // Close wedge
                         xml += `      <direction><direction-type><wedge type="stop" number="${pendingWedges[w].number}"/></direction-type></direction>\n`;
                         pendingWedges.splice(w, 1);
                     }
@@ -117,22 +112,17 @@ export const ExportManager = {
                     continue;
                 }
 
-                // --- DYNAMICS EXPORT ---
+                // --- DYNAMICS ---
                 if (note.type === 'dynamic') {
-                    // <direction placement="below"><direction-type><dynamics><p/></dynamics></direction-type></direction>
-                    // Only sfz is different (sometimes handled as dynamics, sometimes text, MusicXML allows <sfz/> in dynamics)
                     xml += `      <direction placement="below">\n        <direction-type>\n          <dynamics>\n            <${note.subtype}/>\n          </dynamics>\n        </direction-type>\n      </direction>\n`;
                     continue;
                 }
 
-                // --- HAIRPIN START EXPORT ---
+                // --- HAIRPINS ---
                 if (note.type === 'hairpin') {
-                    // <direction><direction-type><wedge type="crescendo" number="1"/></direction-type></direction>
                     const type = note.subtype === 'crescendo' ? 'crescendo' : 'diminuendo';
-                    const number = 1; // Simple numbering for now
+                    const number = 1;
                     xml += `      <direction placement="below">\n        <direction-type>\n          <wedge type="${type}" number="${number}"/>\n        </direction-type>\n      </direction>\n`;
-                    
-                    // Register stop target
                     pendingWedges.push({ endX: note.x + note.width, number: number });
                     continue;
                 }
@@ -156,7 +146,6 @@ export const ExportManager = {
                 }
 
                 if (note.type === 'barline') {
-                    // Force close any pending wedges at barline
                     for (let w = pendingWedges.length - 1; w >= 0; w--) {
                         xml += `      <direction><direction-type><wedge type="stop" number="${pendingWedges[w].number}"/></direction-type></direction>\n`;
                         pendingWedges.splice(w, 1);
@@ -291,7 +280,6 @@ export const ExportManager = {
                 xml += `      </note>\n`;
             }
             
-            // Clean up any unclosed wedges at end of part
             for (let w = pendingWedges.length - 1; w >= 0; w--) {
                 xml += `      <direction><direction-type><wedge type="stop" number="${pendingWedges[w].number}"/></direction-type></direction>\n`;
             }
