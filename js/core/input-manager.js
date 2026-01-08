@@ -63,7 +63,9 @@ export const Input = {
         this.ghostNote = document.querySelector('.ghost-note');
         if (!this.ghostNote) {
             this.ghostNote = document.createElement('div');
-            this.ghostNote.className = 'ghost-note';
+            this.ghostNote.className = 'ghost-note hidden pointer-events-none absolute';
+            // Ensure z-index is high enough to be seen over the overlay
+            this.ghostNote.style.zIndex = '9999';
             const overlay = document.getElementById('overlay-layer');
             if(overlay) overlay.appendChild(this.ghostNote);
         }
@@ -234,7 +236,6 @@ export const Input = {
 
         // --- DYNAMICS (Text) ---
         if (State.activeTool === 'dynamic') {
-             // Find closest system to associate with, but allow free Y placement
              let closestSystem = null;
              let minDistance = Infinity;
              
@@ -251,7 +252,7 @@ export const Input = {
                 const height = Math.abs(closestSystem.bottomY - closestSystem.topY);
                 return { 
                     x: x, 
-                    y: y, // Free placement
+                    y: y, 
                     systemId: closestSystem.id, 
                     type: 'dynamic', 
                     subtype: State.noteDuration, 
@@ -354,7 +355,6 @@ export const Input = {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const part = State.parts.find(p => p.id === State.activePartId);
 
-                // --- DELETE MODE ---
                 if (State.mode === 'delete') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
@@ -366,7 +366,6 @@ export const Input = {
                     return;
                 }
 
-                // --- SELECT MODE ---
                 if (State.mode === 'select') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
@@ -405,7 +404,6 @@ export const Input = {
                     return;
                 }
 
-                // --- ADD MODE ---
                 if (State.mode === 'add') {
                     if (State.isTieMode) {
                         const clickedNote = this.findTargetNote(x, y);
@@ -425,7 +423,6 @@ export const Input = {
                         return; 
                     }
 
-                    // --- HAIRPIN DRAG START ---
                     if (State.activeTool === 'hairpin') {
                         let closestSystemId = 0;
                         let minDistance = Infinity;
@@ -440,7 +437,6 @@ export const Input = {
                         return;
                     }
 
-                    // --- STANDARD ITEM PLACEMENT ---
                     const item = this.calculatePlacement(x, y);
                     if (item) {
                         this.saveState();
@@ -502,7 +498,7 @@ export const Input = {
                     width: width,
                     systemId: this.hairpinStart.systemId,
                     type: 'hairpin',
-                    subtype: State.noteDuration // 'crescendo' or 'diminuendo'
+                    subtype: State.noteDuration
                 });
                 NoteRenderer.renderAll();
             }
@@ -579,7 +575,6 @@ export const Input = {
                  } 
                  else if (n.type === 'dynamic' || n.type === 'hairpin') {
                      n.y += dy;
-                     // For free-floating items, re-check systemId association
                      const part = State.parts.find(p => p.id === State.activePartId);
                      let closestSystemId = n.systemId;
                      let minDistance = Infinity;
@@ -644,15 +639,14 @@ export const Input = {
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
                 
-                // Re-init check
                 if (!this.ghostNote) this.initGhostNote();
 
-                // Clear
+                // Clear & Reset Base Styling
                 this.ghostNote.className = 'ghost-note'; 
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
+                this.ghostNote.style.zIndex = '9999'; // Ensure high z-index
 
-                // Hairpin Drag Visual
                 if (this.isDraggingHairpin && this.hairpinStart) {
                     this.ghostNote.classList.remove('visible');
                     const svgLayer = document.querySelector('#overlay-layer svg');
@@ -686,7 +680,6 @@ export const Input = {
                     return;
                 }
 
-                // HIDE GHOST FOR HAIRPINS
                 if (item.type === 'hairpin') {
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
@@ -699,7 +692,7 @@ export const Input = {
                 if (item.type === 'dynamic') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 1.5) * PDF.scale;
-                    this.ghostNote.classList.add('visible', 'ghost-dynamic');
+                    this.ghostNote.classList.add('visible', 'ghost-dynamic', 'text-blue-600');
                     this.ghostNote.innerText = item.subtype;
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
@@ -724,6 +717,7 @@ export const Input = {
 
                 // Clef
                 if (item.type === 'clef') {
+                    this.ghostNote.classList.add('text-blue-600');
                     if (item.subtype === 'c') {
                         this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
                         this.ghostNote.innerText = '┌';
@@ -749,7 +743,7 @@ export const Input = {
 
                 // Symbol
                 if (item.type === 'symbol') {
-                    this.ghostNote.classList.add('visible', 'ghost-symbol');
+                    this.ghostNote.classList.add('visible', 'ghost-symbol', 'text-blue-600');
                     this.ghostNote.innerText = (item.subtype === 'segno') ? 'щ' : 'ъ';
                     this.ghostNote.style.fontSize = (item.meta.height * 0.5 * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
@@ -763,7 +757,7 @@ export const Input = {
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
-                    this.ghostNote.classList.add('visible', (item.type === 'time' ? 'ghost-time' : 'ghost-key'));
+                    this.ghostNote.classList.add('visible', (item.type === 'time' ? 'ghost-time' : 'ghost-key'), 'text-blue-600');
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
@@ -802,13 +796,12 @@ export const Input = {
                         this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; 
                         this.ghostNote.style.borderRadius = '0';
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
-                        // Rests clear the pitch
                         ToolbarView.updatePitch("-");
                     } else {
-                        this.ghostNote.className = 'ghost-note note-head visible' + dottedClass + accidentalClass;
+                        // EXPLICIT COLOR ADDITION HERE: bg-blue-600
+                        this.ghostNote.className = 'ghost-note note-head visible bg-blue-600' + dottedClass + accidentalClass;
                         this.ghostNote.style.borderRadius = '50%';
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
-                        // Note pitch is ALREADY updated by ZoningEngine.calculateSnap in calculatePlacement
                     }
                     
                     this.ghostNote.style.width = visualWidth + 'px'; 
