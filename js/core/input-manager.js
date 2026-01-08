@@ -726,7 +726,7 @@ export const Input = {
                 if (item.type === 'clef') {
                     if (item.subtype === 'c') {
                         this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
-                        this.ghostNote.innerText = '𝄡';
+                        this.ghostNote.innerText = '┌';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.5 * PDF.scale) + 'px';
                         this.ghostNote.style.height = (item.meta.height * 0.8 * PDF.scale) + 'px';
@@ -735,7 +735,7 @@ export const Input = {
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     } else {
                         this.ghostNote.classList.add('visible', 'ghost-clef');
-                        this.ghostNote.innerText = (item.subtype === 'treble') ? '𝄞' : '𝄢';
+                        this.ghostNote.innerText = (item.subtype === 'treble') ? '' : '┐';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.6 * PDF.scale) + 'px';
                         this.ghostNote.style.height = (item.meta.height * 0.8 * PDF.scale) + 'px';
@@ -750,7 +750,7 @@ export const Input = {
                 // Symbol
                 if (item.type === 'symbol') {
                     this.ghostNote.classList.add('visible', 'ghost-symbol');
-                    this.ghostNote.innerText = (item.subtype === 'segno') ? '𝄋' : '𝄌';
+                    this.ghostNote.innerText = (item.subtype === 'segno') ? 'щ' : 'ъ';
                     this.ghostNote.style.fontSize = (item.meta.height * 0.5 * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
@@ -802,22 +802,19 @@ export const Input = {
                         this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; 
                         this.ghostNote.style.borderRadius = '0';
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                        // Rests clear the pitch
+                        ToolbarView.updatePitch("-");
                     } else {
                         this.ghostNote.className = 'ghost-note note-head visible' + dottedClass + accidentalClass;
                         this.ghostNote.style.borderRadius = '50%';
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
+                        // Note pitch is ALREADY updated by ZoningEngine.calculateSnap in calculatePlacement
                     }
                     
                     this.ghostNote.style.width = visualWidth + 'px'; 
                     this.ghostNote.style.height = visualHeight + 'px'; 
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
-                    
-                    if (item.type === 'note') {
-                         ToolbarView.updatePitch(Utils.getPitchName(item.pitchIndex, item.systemId));
-                    } else {
-                         ToolbarView.updatePitch("-");
-                    }
                 }
 
             } else {
