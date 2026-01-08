@@ -60,7 +60,6 @@ export const Input = {
     },
 
     initGhostNote() {
-        // Ensure we find or create the ghost note
         this.ghostNote = document.querySelector('.ghost-note');
         if (!this.ghostNote) {
             this.ghostNote = document.createElement('div');
@@ -230,13 +229,12 @@ export const Input = {
 
         // --- HAIRPINS (Explicitly no ghost) ---
         if (State.activeTool === 'hairpin') {
-            return { type: 'hairpin' }; // Signal it exists but handles differently
+            return { type: 'hairpin' }; // Signal to handleGlobalMove to hide ghost
         }
 
         // --- DYNAMICS (Text) ---
-        // Free-floating but associated with a zone
         if (State.activeTool === 'dynamic') {
-             // Find closest system to associate with
+             // Find closest system to associate with, but allow free Y placement
              let closestSystem = null;
              let minDistance = Infinity;
              
@@ -253,7 +251,7 @@ export const Input = {
                 const height = Math.abs(closestSystem.bottomY - closestSystem.topY);
                 return { 
                     x: x, 
-                    y: y, // Free vertical placement
+                    y: y, // Free placement
                     systemId: closestSystem.id, 
                     type: 'dynamic', 
                     subtype: State.noteDuration, 
@@ -356,6 +354,7 @@ export const Input = {
                 let { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const part = State.parts.find(p => p.id === State.activePartId);
 
+                // --- DELETE MODE ---
                 if (State.mode === 'delete') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
@@ -367,6 +366,7 @@ export const Input = {
                     return;
                 }
 
+                // --- SELECT MODE ---
                 if (State.mode === 'select') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
@@ -405,6 +405,7 @@ export const Input = {
                     return;
                 }
 
+                // --- ADD MODE ---
                 if (State.mode === 'add') {
                     if (State.isTieMode) {
                         const clickedNote = this.findTargetNote(x, y);
@@ -426,7 +427,6 @@ export const Input = {
 
                     // --- HAIRPIN DRAG START ---
                     if (State.activeTool === 'hairpin') {
-                        // For hairpins, also associate with closest system for export grouping
                         let closestSystemId = 0;
                         let minDistance = Infinity;
                         part.calibration.forEach((sys, idx) => {
@@ -440,7 +440,7 @@ export const Input = {
                         return;
                     }
 
-                    // Standard Placement
+                    // --- STANDARD ITEM PLACEMENT ---
                     const item = this.calculatePlacement(x, y);
                     if (item) {
                         this.saveState();
@@ -579,6 +579,7 @@ export const Input = {
                  } 
                  else if (n.type === 'dynamic' || n.type === 'hairpin') {
                      n.y += dy;
+                     // For free-floating items, re-check systemId association
                      const part = State.parts.find(p => p.id === State.activePartId);
                      let closestSystemId = n.systemId;
                      let minDistance = Infinity;
@@ -643,18 +644,15 @@ export const Input = {
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
                 
-                // Re-initialize ghost element just in case it was lost
-                if (!this.ghostNote) {
-                    this.ghostNote = document.querySelector('.ghost-note');
-                    if (!this.ghostNote) this.initGhostNote();
-                }
+                // Re-init check
+                if (!this.ghostNote) this.initGhostNote();
 
-                // Reset styles
+                // Clear
                 this.ghostNote.className = 'ghost-note'; 
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
 
-                // Hairpin Drag Visuals
+                // Hairpin Drag Visual
                 if (this.isDraggingHairpin && this.hairpinStart) {
                     this.ghostNote.classList.remove('visible');
                     const svgLayer = document.querySelector('#overlay-layer svg');
@@ -688,16 +686,16 @@ export const Input = {
                     return;
                 }
 
-                // Explicit check for hairpin: NO GHOST
+                // HIDE GHOST FOR HAIRPINS
                 if (item.type === 'hairpin') {
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                     return;
                 }
 
-                // --- GHOST RENDER LOGIC ---
+                // --- GHOST VISUALS ---
 
-                // Dynamics (Box Border style like Time Sig)
+                // Dynamics
                 if (item.type === 'dynamic') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 1.5) * PDF.scale;
@@ -713,7 +711,7 @@ export const Input = {
                     return;
                 }
                 
-                // ... REST OF THE GHOSTS ...
+                // Barline
                 if (item.type === 'barline') {
                     this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
@@ -724,6 +722,7 @@ export const Input = {
                     return;
                 }
 
+                // Clef
                 if (item.type === 'clef') {
                     if (item.subtype === 'c') {
                         this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
@@ -748,6 +747,7 @@ export const Input = {
                     return;
                 }
 
+                // Symbol
                 if (item.type === 'symbol') {
                     this.ghostNote.classList.add('visible', 'ghost-symbol');
                     this.ghostNote.innerText = (item.subtype === 'segno') ? '𝄋' : '𝄌';
@@ -759,6 +759,7 @@ export const Input = {
                     return;
                 }
 
+                // Time/Key
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
@@ -772,6 +773,7 @@ export const Input = {
                     return;
                 }
 
+                // Note/Rest
                 if (item.type === 'note' || item.type === 'rest') {
                     let visualWidth, visualHeight;
                     const noteSize = item.meta.noteSize;
