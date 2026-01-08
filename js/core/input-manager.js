@@ -21,7 +21,14 @@ export const Input = {
     // Tie Dragging State
     isDraggingTie: false,
     tieStartNote: null,
-    tempTiePath: null, 
+    tempTiePath: null,
+    
+    // Hairpin Dragging State
+    isDraggingHairpin: false,
+    hairpinOriginX: 0,
+    hairpinOriginY: 0,
+    hairpinSystemId: null,
+    hairpinTempPath: null,
 
     // Selection State
     isSelectingBox: false,
@@ -207,8 +214,14 @@ export const Input = {
         let minDist = Infinity;
 
         part.notes.forEach(n => {
-            const dx = n.x - x;
-            const dy = n.y - y;
+            let cx = n.x, cy = n.y;
+            // Adjustment for hairpin hit detection (check proximity to center)
+            if (n.type === 'hairpin') {
+                cx = n.x + (n.width / 2);
+            }
+            
+            const dx = cx - x;
+            const dy = cy - y;
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist < THRESHOLD && dist < minDist) {
                 minDist = dist;
@@ -219,17 +232,34 @@ export const Input = {
         return closest;
     },
 
-    /**
-     * UNIFIED PLACEMENT CALCULATOR
-     * Calculates exactly where an item should be placed based on mouse coordinates.
-     * Returns the item object if valid, or null if placement is invalid.
-     */
     calculatePlacement(x, y) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
 
         const zoning = ZoningEngine.checkZone(y);
         
+        // --- DYNAMICS (Text & Hairpins) ---
+        if (State.activeTool === 'dynamic' || State.activeTool === 'hairpin') {
+            if (!zoning) return null;
+            
+            // Constraint: Must be below the staff (bottomY)
+            // Allow clicking exactly on bottom line, but practically needs to be lower.
+            // Using a small buffer (5px scaled) so user doesn't have to be pixel perfect
+            if (y < zoning.bottomY - (5 / PDF.scale)) return null;
+
+            const height = Math.abs(zoning.bottomY - zoning.topY);
+            
+            // Free vertical placement allowed below staff
+            return {
+                x: x,
+                y: y,
+                systemId: zoning.id,
+                type: State.activeTool,
+                subtype: State.noteDuration, // e.g., 'mf', 'crescendo'
+                meta: { height }
+            };
+        }
+
         // --- SYMBOLS (Segno, Coda) ---
         if (State.activeTool === 'symbol') {
             if (!zoning) return null;
@@ -253,10 +283,10 @@ export const Input = {
                     systemId: zoning.id, 
                     type: 'symbol', 
                     subtype: State.noteDuration,
-                    meta: { height } // Passed for ghost sizing
+                    meta: { height } 
                 };
             }
-            return null; // Don't allow free placement of symbols
+            return null;
         }
 
         // --- CLEFS ---
@@ -306,7 +336,6 @@ export const Input = {
         }
 
         // --- NOTES & RESTS ---
-        // (Default fallback for 'note' or 'rest')
         if (State.activeTool === 'note' || State.activeTool === 'rest') {
             const snap = ZoningEngine.calculateSnap(y);
             if (snap) {
@@ -423,12 +452,33 @@ export const Input = {
                         }
                         return; 
                     }
+                    
+                    // --- HAIRPIN DRAGGING LOGIC ---
+                    if (State.activeTool === 'hairpin') {
+                        const item = this.calculatePlacement(x, y);
+                        if (item) {
+                            this.isDraggingHairpin = true;
+                            this.hairpinOriginX = item.x;
+                            this.hairpinOriginY = item.y;
+                            this.hairpinSystemId = item.systemId;
+                            
+                            // Create temp SVG element for live feedback
+                            const svgLayer = document.querySelector('#overlay-layer svg');
+                            if (svgLayer) {
+                                this.hairpinTempPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                                this.hairpinTempPath.setAttribute("stroke", "#2563eb");
+                                this.hairpinTempPath.setAttribute("stroke-width", "2");
+                                this.hairpinTempPath.setAttribute("fill", "none");
+                                svgLayer.appendChild(this.hairpinTempPath);
+                            }
+                        }
+                        return;
+                    }
 
-                    // --- USE UNIFIED CALCULATOR ---
+                    // --- STANDARD ITEM PLACEMENT ---
                     const item = this.calculatePlacement(x, y);
                     if (item) {
                         this.saveState();
-                        // Strip meta property before saving
                         const { meta, ...cleanItem } = item; 
                         part.notes.push(cleanItem);
                         NoteRenderer.drawNote(cleanItem.x, cleanItem.y, cleanItem.size, cleanItem.pitchIndex, cleanItem.systemId, cleanItem.type, cleanItem.subtype, cleanItem.isDotted, cleanItem.accidental);
@@ -441,7 +491,6 @@ export const Input = {
     handleGlobalUp(e) {
         if (this.isSelectingBox) {
             this.isSelectingBox = false;
-            
             if (this.selectBox) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const startX = this.selectStartX;
@@ -457,16 +506,12 @@ export const Input = {
                     const notesInBox = part.notes.filter(n => {
                         return n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY;
                     });
-
                     if (this.isShift) {
-                        notesInBox.forEach(n => {
-                            if (!State.selectedNotes.includes(n)) State.selectedNotes.push(n);
-                        });
+                        notesInBox.forEach(n => { if (!State.selectedNotes.includes(n)) State.selectedNotes.push(n); });
                     } else {
                         State.selectedNotes = notesInBox;
                     }
                 }
-                
                 this.selectBox.remove();
                 this.selectBox = null;
                 NoteRenderer.renderAll();
@@ -499,6 +544,32 @@ export const Input = {
             this.tieStartNote = null;
         }
 
+        if (this.isDraggingHairpin) {
+            this.isDraggingHairpin = false;
+            if (this.hairpinTempPath) {
+                this.hairpinTempPath.remove();
+                this.hairpinTempPath = null;
+            }
+            
+            const { x, y } = Utils.getPdfCoords(e, PDF.scale);
+            let width = x - this.hairpinOriginX;
+            
+            // Only allow forward dragging (width > 0)
+            if (width > 10) { // Min width 10px unscaled
+                this.saveState();
+                const part = State.parts.find(p => p.id === State.activePartId);
+                part.notes.push({
+                    x: this.hairpinOriginX,
+                    y: this.hairpinOriginY,
+                    systemId: this.hairpinSystemId,
+                    type: 'hairpin',
+                    subtype: State.noteDuration, // 'crescendo' or 'diminuendo'
+                    width: width
+                });
+                NoteRenderer.renderAll();
+            }
+        }
+
         if (this.isDragging) {
             this.isDragging = false;
             if(this.viewport) this.viewport.classList.remove('grabbing');
@@ -515,12 +586,10 @@ export const Input = {
             const startY = this.selectStartY * PDF.scale;
             const currX = x * PDF.scale;
             const currY = y * PDF.scale;
-            
             const w = Math.abs(currX - startX);
             const h = Math.abs(currY - startY);
             const l = Math.min(currX, startX);
             const t = Math.min(currY, startY);
-            
             this.selectBox.style.width = w + 'px';
             this.selectBox.style.height = h + 'px';
             this.selectBox.style.left = l + 'px';
@@ -532,8 +601,10 @@ export const Input = {
              const dy = y - this.dragStartY;
              State.selectedNotes.forEach(n => {
                  n.x += dx;
+                 const newY = n.y + dy;
+                 
+                 // Smart Y Snapping for Notes/Rests vs Free for Dynamics/Symbols
                  if (n.type === 'note' || n.type === 'rest' || (n.type === 'clef' && n.subtype === 'c')) {
-                     const newY = n.y + dy;
                      const zone = ZoningEngine.checkZone(newY);
                      if (zone) {
                          const height = Math.abs(zone.bottomY - zone.topY);
@@ -548,18 +619,49 @@ export const Input = {
                          n.y = newY; 
                      }
                  } else {
-                     const zone = ZoningEngine.checkZone(n.y + dy);
+                     // For dynamics, symbols, barlines, allow freer vertical movement 
+                     // but update system ID if moving across zones
+                     const zone = ZoningEngine.checkZone(newY);
                      if (zone && zone.id !== n.systemId) {
-                         const height = Math.abs(zone.bottomY - zone.topY);
                          n.systemId = zone.id;
+                         const height = Math.abs(zone.bottomY - zone.topY);
                          if (n.type === 'barline') n.y = zone.topY;
                          if (n.type === 'time' || n.type === 'key') n.y = zone.topY + (height / 2);
                      }
+                     
+                     // Hairpins/Dynamics: Clamp to be below staff? 
+                     // For drag-move, we allow user freedom, assuming they know what they are doing.
+                     n.y = newY;
                  }
              });
              this.dragStartX = x;
              this.dragStartY = y;
              NoteRenderer.renderAll(); 
+             return;
+        }
+
+        if (this.isDraggingHairpin && this.hairpinTempPath) {
+             const startX = this.hairpinOriginX * PDF.scale;
+             const startY = this.hairpinOriginY * PDF.scale;
+             const currX = x * PDF.scale;
+             
+             // Visual width can't be negative for hairpins
+             const width = Math.max(0, currX - startX);
+             const endX = startX + width;
+             
+             const height = 10 * PDF.scale; // Visual opening height of hairpin
+             const midY = startY;
+             const topY = midY - height;
+             const botY = midY + height;
+
+             // Draw Hairpin SVG path
+             if (State.noteDuration === 'crescendo') {
+                 // <  (Starts closed, ends open)
+                 this.hairpinTempPath.setAttribute("d", `M ${endX} ${topY} L ${startX} ${midY} L ${endX} ${botY}`);
+             } else {
+                 // > (Starts open, ends closed)
+                 this.hairpinTempPath.setAttribute("d", `M ${startX} ${topY} L ${endX} ${midY} L ${startX} ${botY}`);
+             }
              return;
         }
 
@@ -595,24 +697,58 @@ export const Input = {
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
                 
-                // Clear all classes first
                 this.ghostNote.className = 'ghost-note'; 
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
                 
-                // --- USE UNIFIED CALCULATOR FOR GHOST ---
                 const item = this.calculatePlacement(x, y);
 
                 if (!item) {
-                    // INVALID PLACEMENT -> HIDE GHOST
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                     return;
                 }
 
-                // VALID PLACEMENT -> SHOW GHOST AT EXACT COORDINATES
-                // We reuse the 'meta' property to determine sizing without recalculating
-                
+                // --- GHOST DYNAMICS ---
+                if (item.type === 'dynamic') {
+                    const boxHeight = item.meta.height * 0.6 * PDF.scale; // Scaled to staff
+                    this.ghostNote.classList.add('visible', 'ghost-dynamic');
+                    this.ghostNote.style.height = boxHeight + 'px';
+                    this.ghostNote.style.minWidth = boxHeight + 'px';
+                    this.ghostNote.innerText = item.subtype; // p, mf, etc.
+                    
+                    // Simple font styling for ghost
+                    this.ghostNote.style.fontFamily = "'Noto Music', serif";
+                    this.ghostNote.style.fontSize = (boxHeight * 0.8) + 'px';
+                    this.ghostNote.style.display = 'flex';
+                    this.ghostNote.style.alignItems = 'center';
+                    this.ghostNote.style.justifyContent = 'center';
+                    this.ghostNote.style.border = '2px solid rgba(56, 189, 248, 0.6)';
+                    this.ghostNote.style.color = 'rgba(56, 189, 248, 0.6)';
+                    this.ghostNote.style.borderRadius = '4px';
+
+                    this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
+                    this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
+                    this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
+                // --- GHOST HAIRPIN ---
+                if (item.type === 'hairpin') {
+                    // Small blue dot to indicate start point
+                    this.ghostNote.classList.add('visible');
+                    this.ghostNote.style.width = '8px';
+                    this.ghostNote.style.height = '8px';
+                    this.ghostNote.style.backgroundColor = '#2563eb';
+                    this.ghostNote.style.borderRadius = '50%';
+                    this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
+                    this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
+                    this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
+
                 if (item.type === 'barline') {
                     this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
@@ -626,7 +762,7 @@ export const Input = {
                 if (item.type === 'clef') {
                     if (item.subtype === 'c') {
                         this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
-                        this.ghostNote.innerText = '𝄡';
+                        this.ghostNote.innerText = '┌';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.5 * PDF.scale) + 'px';
                         this.ghostNote.style.height = (item.meta.height * 0.8 * PDF.scale) + 'px';
@@ -635,7 +771,7 @@ export const Input = {
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     } else {
                         this.ghostNote.classList.add('visible', 'ghost-clef');
-                        this.ghostNote.innerText = (item.subtype === 'treble') ? '𝄞' : '𝄢';
+                        this.ghostNote.innerText = (item.subtype === 'treble') ? '' : '┐';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.6 * PDF.scale) + 'px';
                         this.ghostNote.style.height = (item.meta.height * 0.8 * PDF.scale) + 'px';
@@ -649,7 +785,7 @@ export const Input = {
 
                 if (item.type === 'symbol') {
                     this.ghostNote.classList.add('visible', 'ghost-symbol');
-                    this.ghostNote.innerText = (item.subtype === 'segno') ? '𝄋' : '𝄌';
+                    this.ghostNote.innerText = (item.subtype === 'segno') ? 'щ' : 'ъ';
                     this.ghostNote.style.fontSize = (item.meta.height * 0.5 * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
@@ -711,7 +847,6 @@ export const Input = {
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
                     
-                    // Only update pitch if it's a pitched note
                     if (item.type === 'note') {
                          ToolbarView.updatePitch(Utils.getPitchName(item.pitchIndex, item.systemId));
                     } else {
