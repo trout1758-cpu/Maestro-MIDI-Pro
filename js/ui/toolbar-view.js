@@ -71,9 +71,6 @@ export const ToolbarView = {
         });
 
         document.getElementById('control-deck').classList.remove('selection-mode-active');
-        
-        // TODO: Ideally restore active tool visuals here, but for now we leave them cleared 
-        // to avoid incorrect state assumptions.
     },
 
     toggleSelectMode(btn) {
@@ -102,11 +99,8 @@ export const ToolbarView = {
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
             
             // 3. Deselect Modifier Buttons (Accidentals, Dots, Ties)
-            // Note: We select by class or attribute. Assuming accidentals have 'accidental-btn' class.
-            // Dots typically don't have a unique class other than the onclick, but we can query by button inside control-deck
             const deck = document.getElementById('control-deck');
             if (deck) {
-                // Remove 'active' class (blue styling) from ALL buttons in the deck
                 deck.querySelectorAll('.maestro-btn').forEach(b => {
                     b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
                 });
