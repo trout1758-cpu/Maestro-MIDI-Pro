@@ -27,26 +27,26 @@ export const ExportManager = {
                 systemOrderMap[sys.originalId] = orderIdx;
             });
 
-            // Sort notes
+            // Sort notes by System Y, then X
             const sortedNotes = part.notes.sort((a, b) => {
                 const sysA = systemOrderMap[a.systemId];
                 const sysB = systemOrderMap[b.systemId];
                 
-                if (sysA !== sysB) return sysA - sysB; 
+                if (sysA !== sysB) return sysA - sysB; // Different systems
                 
+                // Same system: Sort by X
+                // Small priority tweaks for coincident items (Clef < Key < Time < Note)
                 if (Math.abs(a.x - b.x) < 5.0) {
                     const getPriority = (type) => {
                         if (type === 'barline') return 0;
                         if (type === 'clef' || type === 'key' || type === 'time') return 1;
-                        if (type === 'hairpin') return 1.5; 
-                        if (type === 'dynamic') return 1.6; 
                         if (type === 'symbol') return 2;
                         return 3; 
                     };
                     const pA = getPriority(a.type);
                     const pB = getPriority(b.type);
                     if (pA !== pB) return pA - pB;
-                    return b.y - a.y; 
+                    return b.y - a.y; // Top-down for same X/Type
                 }
                 return a.x - b.x;
             });
@@ -57,6 +57,7 @@ export const ExportManager = {
             let currentBeatType = 4;
             let currentFifths = 0;
 
+            // Look ahead for first Time/Key/Clef to set initial measure attributes
             for (let i = 0; i < sortedNotes.length; i++) {
                 const n = sortedNotes[i];
                 if (n.type === 'note' || n.type === 'rest' || n.type === 'barline') break;
@@ -81,19 +82,10 @@ export const ExportManager = {
             xml += `    <measure number="${measureNum}">\n      <attributes>\n        <divisions>24</divisions>\n        <key><fifths>${currentFifths}</fifths></key>\n        <time><beats>${currentBeats}</beats><beat-type>${currentBeatType}</beat-type></time>\n        <clef>\n          <sign>${currentClefType === 'treble' ? 'G' : (currentClefType === 'bass' ? 'F' : 'C')}</sign>\n          <line>${currentClefType === 'treble' ? '2' : (currentClefType === 'bass' ? '4' : '3')}</line>\n        </clef>\n      </attributes>\n`;
             
             // --- STEP 3: MAIN PROCESSING LOOP ---
-            let pendingWedges = []; 
-
             for (let i = 0; i < sortedNotes.length; i++) {
                 const note = sortedNotes[i];
                 const prevNote = i > 0 ? sortedNotes[i-1] : null;
                 const nextNote = i < sortedNotes.length - 1 ? sortedNotes[i+1] : null;
-
-                for (let w = pendingWedges.length - 1; w >= 0; w--) {
-                    if (note.x >= pendingWedges[w].endX || note.type === 'barline') {
-                        xml += `      <direction><direction-type><wedge type="stop" number="${pendingWedges[w].number}"/></direction-type></direction>\n`;
-                        pendingWedges.splice(w, 1);
-                    }
-                }
 
                 if (note.type === 'time') {
                     const [beats, beatType] = note.subtype.split('/');
@@ -109,21 +101,6 @@ export const ExportManager = {
                     if (keyMap.hasOwnProperty(note.subtype)) newFifths = keyMap[note.subtype];
                     currentFifths = newFifths;
                     xml += `      <attributes><key><fifths>${currentFifths}</fifths></key></attributes>\n`;
-                    continue;
-                }
-
-                // --- DYNAMICS ---
-                if (note.type === 'dynamic') {
-                    xml += `      <direction placement="below">\n        <direction-type>\n          <dynamics>\n            <${note.subtype}/>\n          </dynamics>\n        </direction-type>\n      </direction>\n`;
-                    continue;
-                }
-
-                // --- HAIRPINS ---
-                if (note.type === 'hairpin') {
-                    const type = note.subtype === 'crescendo' ? 'crescendo' : 'diminuendo';
-                    const number = 1;
-                    xml += `      <direction placement="below">\n        <direction-type>\n          <wedge type="${type}" number="${number}"/>\n        </direction-type>\n      </direction>\n`;
-                    pendingWedges.push({ endX: note.x + note.width, number: number });
                     continue;
                 }
 
@@ -146,11 +123,6 @@ export const ExportManager = {
                 }
 
                 if (note.type === 'barline') {
-                    for (let w = pendingWedges.length - 1; w >= 0; w--) {
-                        xml += `      <direction><direction-type><wedge type="stop" number="${pendingWedges[w].number}"/></direction-type></direction>\n`;
-                        pendingWedges.splice(w, 1);
-                    }
-
                     let barlineXML = '';
                     if (note.subtype === 'double') barlineXML = '<barline location="right"><bar-style>light-light</bar-style></barline>';
                     else if (note.subtype === 'final') barlineXML = '<barline location="right"><bar-style>light-heavy</bar-style></barline>';
@@ -164,6 +136,7 @@ export const ExportManager = {
                     continue;
                 }
 
+                // Check for Chords or Polyphony
                 let isChord = false;
                 let isVoice2 = false;
                 let backupDuration = 0;
@@ -174,7 +147,9 @@ export const ExportManager = {
                         if (sameDuration) {
                             isChord = true;
                         } else {
+                            // Different duration at same X -> Polyphony (Voice 2)
                             isVoice2 = true;
+                            // Calculate backup duration from previous note
                             let prevDur = (4 * 24) / prevNote.duration;
                             if (prevNote.isDotted) prevDur *= 1.5;
                             backupDuration = prevDur;
@@ -184,19 +159,24 @@ export const ExportManager = {
 
                 if (isVoice2) { xml += `      <backup><duration>${backupDuration}</duration></backup>\n`; }
 
+                // Pitch Calculation
                 const refMidi = CONFIG.CLEF_OFFSETS[currentClefType] || CONFIG.CLEF_OFFSETS['treble'];
                 let currentMidi = refMidi;
                 const whiteKeys = [0, 2, 4, 5, 7, 9, 11]; 
                 const direction = note.pitchIndex >= 0 ? -1 : 1;
                 const steps = Math.abs(note.pitchIndex);
+                
+                // Simple diatonic walk
                 for(let k=0; k<steps; k++) {
                     currentMidi += direction;
                     while(!whiteKeys.includes(currentMidi % 12)) currentMidi += direction;
                 }
+
                 const stepNames = ['C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B'];
                 const stepName = stepNames[currentMidi % 12];
                 const octave = Math.floor(currentMidi / 12) - 1; 
 
+                // Duration Calculation
                 let durationXML = (4 * 24) / note.duration;
                 if (note.isDotted) durationXML *= 1.5;
                 
@@ -209,6 +189,7 @@ export const ExportManager = {
                 const tieStart = note.hasTie;
                 let tieStop = false;
                 if (note.type === 'note') {
+                    // Check backwards for a tied note of same pitch
                     for (let j = i - 1; j >= 0; j--) {
                         const cand = sortedNotes[j];
                         if (cand.type === 'note') {
@@ -221,17 +202,20 @@ export const ExportManager = {
                 }
 
                 // --- BEAMING LOGIC ---
+                // Simple heuristic: If 8th/16th notes are close together, beam them.
                 const isBeamable = (n) => n && n.type === 'note' && (n.duration === 8 || n.duration === 16);
                 let beam1 = null; let beam2 = null; 
 
                 if (note.type === 'note' && !isChord && !isVoice2) { 
                     if (isBeamable(note)) {
-                        const prevIsBeamable = isBeamable(prevNote) && Math.abs(note.x - prevNote.x) > 2.0; 
+                        const prevIsBeamable = isBeamable(prevNote) && Math.abs(note.x - prevNote.x) > 2.0; // Not a chord/voice with prev
                         const nextIsBeamable = isBeamable(nextNote) && Math.abs(nextNote.x - note.x) > 2.0; 
+                        
                         if (!prevIsBeamable && nextIsBeamable) { beam1 = 'begin'; }
                         else if (prevIsBeamable && !nextIsBeamable) { beam1 = 'end'; }
                         else if (prevIsBeamable && nextIsBeamable) { beam1 = 'continue'; }
                         
+                        // 16th note secondary beam
                         if (note.duration === 16) {
                             const prevIs16 = prevIsBeamable && prevNote.duration === 16;
                             const nextIs16 = nextIsBeamable && nextNote.duration === 16;
@@ -247,6 +231,7 @@ export const ExportManager = {
                 if (note.type === 'rest') { xml += `        <rest/>\n`; } 
                 else {
                      xml += `        <pitch>\n          <step>${stepName}</step>\n`;
+                     // Handle accidental logic if stored
                      if (note.accidental) {
                          let alter = 0;
                          if (note.accidental === 'sharp') alter = 1;
@@ -278,10 +263,6 @@ export const ExportManager = {
                 if (beam2) xml += `        <beam number="2">${beam2}</beam>\n`;
 
                 xml += `      </note>\n`;
-            }
-            
-            for (let w = pendingWedges.length - 1; w >= 0; w--) {
-                xml += `      <direction><direction-type><wedge type="stop" number="${pendingWedges[w].number}"/></direction-type></direction>\n`;
             }
 
             xml += `    </measure>\n  </part>\n`;
