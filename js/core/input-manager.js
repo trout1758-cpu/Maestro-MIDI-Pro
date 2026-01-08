@@ -63,8 +63,8 @@ export const Input = {
         this.ghostNote = document.querySelector('.ghost-note');
         if (!this.ghostNote) {
             this.ghostNote = document.createElement('div');
+            // Default state is hidden, but must be absolute to work when shown
             this.ghostNote.className = 'ghost-note hidden pointer-events-none absolute';
-            // Ensure z-index is high enough to be seen over the overlay
             this.ghostNote.style.zIndex = '9999';
             const overlay = document.getElementById('overlay-layer');
             if(overlay) overlay.appendChild(this.ghostNote);
@@ -224,21 +224,17 @@ export const Input = {
         return closest;
     },
 
-    // UNIFIED PLACEMENT CALCULATOR
     calculatePlacement(x, y) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
 
-        // --- HAIRPINS (Explicitly no ghost) ---
         if (State.activeTool === 'hairpin') {
-            return { type: 'hairpin' }; // Signal to handleGlobalMove to hide ghost
+            return { type: 'hairpin' }; 
         }
 
-        // --- DYNAMICS (Text) ---
         if (State.activeTool === 'dynamic') {
              let closestSystem = null;
              let minDistance = Infinity;
-             
              part.calibration.forEach((sys, idx) => {
                  const sysMid = (sys.topY + sys.bottomY) / 2;
                  const dist = Math.abs(y - sysMid);
@@ -264,7 +260,6 @@ export const Input = {
 
         const zoning = ZoningEngine.checkZone(y);
 
-        // --- SYMBOLS ---
         if (State.activeTool === 'symbol') {
             if (!zoning) return null;
             const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
@@ -281,7 +276,6 @@ export const Input = {
             return null;
         }
 
-        // --- CLEFS ---
         if (State.activeTool === 'clef') {
             if (State.noteDuration === 'c') {
                 const snap = ZoningEngine.calculateSnap(y);
@@ -297,7 +291,6 @@ export const Input = {
             return null;
         }
 
-        // --- BARLINES ---
         if (State.activeTool === 'barline') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
@@ -306,7 +299,6 @@ export const Input = {
             return null;
         }
 
-        // --- TIME/KEY ---
         if (State.activeTool === 'time' || State.activeTool === 'key') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
@@ -316,7 +308,6 @@ export const Input = {
             return null;
         }
 
-        // --- NOTES/RESTS ---
         if (State.activeTool === 'note' || State.activeTool === 'rest') {
             const snap = ZoningEngine.calculateSnap(y);
             if (snap) {
@@ -641,11 +632,11 @@ export const Input = {
                 
                 if (!this.ghostNote) this.initGhostNote();
 
-                // Clear & Reset Base Styling
-                this.ghostNote.className = 'ghost-note'; 
+                // Clear & Reset Base Styling - FORCE absolute and pointer-events-none
+                this.ghostNote.className = 'ghost-note absolute pointer-events-none'; 
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
-                this.ghostNote.style.zIndex = '9999'; // Ensure high z-index
+                this.ghostNote.style.zIndex = '9999';
 
                 if (this.isDraggingHairpin && this.hairpinStart) {
                     this.ghostNote.classList.remove('visible');
@@ -692,7 +683,7 @@ export const Input = {
                 if (item.type === 'dynamic') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 1.5) * PDF.scale;
-                    this.ghostNote.classList.add('visible', 'ghost-dynamic', 'text-blue-600');
+                    this.ghostNote.className = 'ghost-note ghost-dynamic visible absolute pointer-events-none text-blue-600';
                     this.ghostNote.innerText = item.subtype;
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
@@ -706,7 +697,7 @@ export const Input = {
                 
                 // Barline
                 if (item.type === 'barline') {
-                    this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
+                    this.ghostNote.className = `ghost-note ghost-barline ${item.subtype} visible absolute pointer-events-none`;
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
@@ -717,9 +708,9 @@ export const Input = {
 
                 // Clef
                 if (item.type === 'clef') {
-                    this.ghostNote.classList.add('text-blue-600');
+                    // Added absolute pointer-events-none to these definitions
                     if (item.subtype === 'c') {
-                        this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
+                        this.ghostNote.className = 'ghost-note ghost-clef c visible absolute pointer-events-none text-blue-600';
                         this.ghostNote.innerText = '┌';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.5 * PDF.scale) + 'px';
@@ -728,7 +719,7 @@ export const Input = {
                         this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
                     } else {
-                        this.ghostNote.classList.add('visible', 'ghost-clef');
+                        this.ghostNote.className = 'ghost-note ghost-clef visible absolute pointer-events-none text-blue-600';
                         this.ghostNote.innerText = (item.subtype === 'treble') ? '' : '┐';
                         this.ghostNote.style.fontSize = (item.meta.height * 0.8 * PDF.scale) + 'px';
                         this.ghostNote.style.width = (item.meta.height * 0.6 * PDF.scale) + 'px';
@@ -743,7 +734,7 @@ export const Input = {
 
                 // Symbol
                 if (item.type === 'symbol') {
-                    this.ghostNote.classList.add('visible', 'ghost-symbol', 'text-blue-600');
+                    this.ghostNote.className = 'ghost-note ghost-symbol visible absolute pointer-events-none text-blue-600';
                     this.ghostNote.innerText = (item.subtype === 'segno') ? 'щ' : 'ъ';
                     this.ghostNote.style.fontSize = (item.meta.height * 0.5 * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
@@ -757,7 +748,7 @@ export const Input = {
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
-                    this.ghostNote.classList.add('visible', (item.type === 'time' ? 'ghost-time' : 'ghost-key'), 'text-blue-600');
+                    this.ghostNote.className = `ghost-note ${(item.type === 'time' ? 'ghost-time' : 'ghost-key')} visible absolute pointer-events-none text-blue-600`;
                     this.ghostNote.style.width = boxWidth + 'px';
                     this.ghostNote.style.height = boxHeight + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
@@ -792,14 +783,13 @@ export const Input = {
                     const accidentalClass = item.accidental ? ` accidental-${item.accidental}` : '';
 
                     if (item.type === 'rest') {
-                        this.ghostNote.className = 'ghost-note rest visible' + dottedClass + accidentalClass;
+                        this.ghostNote.className = 'ghost-note rest visible absolute pointer-events-none' + dottedClass + accidentalClass;
                         this.ghostNote.style.border = '2px solid rgba(239, 68, 68, 0.6)'; 
                         this.ghostNote.style.borderRadius = '0';
                         this.ghostNote.style.transform = 'translate(-50%, -50%)';
                         ToolbarView.updatePitch("-");
                     } else {
-                        // EXPLICIT COLOR ADDITION HERE: bg-blue-600
-                        this.ghostNote.className = 'ghost-note note-head visible bg-blue-600' + dottedClass + accidentalClass;
+                        this.ghostNote.className = 'ghost-note note-head visible absolute pointer-events-none bg-blue-600' + dottedClass + accidentalClass;
                         this.ghostNote.style.borderRadius = '50%';
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
                     }
