@@ -252,31 +252,31 @@
                 </div>
             </div>
 
-            <!-- DYNAMICS -->
+            <!-- DYNAMICS (UPDATED: ENABLED) -->
             <div id="tools-dynamics" class="flex gap-6 items-center justify-center w-full hidden">
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2 items-center">
-                         <button class="maestro-btn placeholder note-grid-btn" title="mf">𝆐𝆑</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="f">𝆑</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="ff">𝆑𝆑</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="fff">𝆑𝆑𝆑</button>
-                         <button class="maestro-btn placeholder double-width-btn flex items-center justify-center overflow-hidden" title="Crescendo">
+                         <button class="maestro-btn tool-btn note-grid-btn" title="mf" onclick="ToolbarView.selectTool('dynamic', 'mf', this)">𝆐𝆑</button>
+                         <button class="maestro-btn tool-btn note-grid-btn" title="f" onclick="ToolbarView.selectTool('dynamic', 'f', this)">𝆑</button>
+                         <button class="maestro-btn tool-btn note-grid-btn" title="ff" onclick="ToolbarView.selectTool('dynamic', 'ff', this)">𝆑𝆑</button>
+                         <button class="maestro-btn tool-btn note-grid-btn" title="fff" onclick="ToolbarView.selectTool('dynamic', 'fff', this)">𝆑𝆑𝆑</button>
+                         <button class="maestro-btn tool-btn double-width-btn flex items-center justify-center overflow-hidden" title="Crescendo" onclick="ToolbarView.selectTool('hairpin', 'crescendo', this)">
                             <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&lt;</span>
                          </button>
                     </div>
                     <div class="flex gap-2 items-center">
-                         <button class="maestro-btn placeholder note-grid-btn" title="mp">𝆐𝆏</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="p">𝆏</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="pp">𝆏𝆏</button>
-                         <button class="maestro-btn placeholder note-grid-btn" title="ppp">𝆏𝆏𝆏</button>
-                         <button class="maestro-btn placeholder double-width-btn flex items-center justify-center overflow-hidden" title="Diminuendo">
+                         <button class="maestro-btn tool-btn note-grid-btn" title="mp" onclick="ToolbarView.selectTool('dynamic', 'mp', this)">𝆐𝆏</button>
+                         <button class="maestro-btn tool-btn note-grid-btn" title="p" onclick="ToolbarView.selectTool('dynamic', 'p', this)">𝆏</button>
+                         <button class="maestro-btn tool-btn note-grid-btn" title="pp" onclick="ToolbarView.selectTool('dynamic', 'pp', this)">𝆏𝆏</button>
+                         <button class="maestro-btn tool-btn note-grid-btn" title="ppp" onclick="ToolbarView.selectTool('dynamic', 'ppp', this)">𝆏𝆏𝆏</button>
+                         <button class="maestro-btn tool-btn double-width-btn flex items-center justify-center overflow-hidden" title="Diminuendo" onclick="ToolbarView.selectTool('hairpin', 'diminuendo', this)">
                             <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&gt;</span>
                          </button>
                     </div>
                 </div>
                 <div class="w-px h-20 bg-gray-300"></div>
                 <div>
-                    <button class="maestro-btn placeholder note-grid-btn text-sm italic font-serif" title="sfz">sfz</button>
+                    <button class="maestro-btn tool-btn note-grid-btn text-sm italic font-serif" title="sfz" onclick="ToolbarView.selectTool('dynamic', 'sfz', this)">sfz</button>
                 </div>
             </div>
 
