@@ -138,6 +138,7 @@ export const ToolbarView = {
              State.selectedNotes.forEach(note => {
                  let isCompatible = false;
                  
+                 // Type Compatibility Logic
                  if ((note.type === 'note' || note.type === 'rest') && (tool === 'note' || tool === 'rest')) {
                      isCompatible = true;
                  } else if (note.type === tool) {
