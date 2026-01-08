@@ -7,7 +7,7 @@ export const NoteRenderer = {
         if (!overlay) return;
         overlay.innerHTML = '';
 
-        // Add SVG Layer for connections (Ties, Hairpins)
+        // Add SVG Layer for ties
         const svgNS = "http://www.w3.org/2000/svg";
         const svgLayer = document.createElementNS(svgNS, "svg");
         svgLayer.style.position = 'absolute';
@@ -22,7 +22,7 @@ export const NoteRenderer = {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return;
 
-        // Render Connections First (Bottom Layer)
+        // Render Ties First (Bottom Layer)
         part.notes.forEach(note => {
             if (note.hasTie && note.type === 'note') {
                 const nextNote = this.findNextNote(part.notes, note);
@@ -30,16 +30,11 @@ export const NoteRenderer = {
                     this.drawTie(svgLayer, note, nextNote);
                 }
             }
-            if (note.type === 'hairpin') {
-                this.drawHairpin(svgLayer, note);
-            }
         });
 
         // Render Items
         part.notes.forEach(note => {
-            if (note.type !== 'hairpin') { // Hairpins drawn on SVG layer
-                this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype || note.duration, note.isDotted, note.accidental, note);
-            }
+            this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype || note.duration, note.isDotted, note.accidental, note);
         });
     },
 
@@ -72,6 +67,7 @@ export const NoteRenderer = {
         path.setAttribute("stroke-width", "2");
         path.setAttribute("fill", "none");
         
+        // Highlight logic for ties implies selecting the start note usually
         if (State.selectedNotes.includes(start)) {
              path.setAttribute("stroke", "#22c55e");
         }
@@ -79,70 +75,18 @@ export const NoteRenderer = {
         svgLayer.appendChild(path);
     },
 
-    drawHairpin(svgLayer, hairpin) {
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        const startX = hairpin.x * PDF.scale;
-        const startY = hairpin.y * PDF.scale;
-        const width = hairpin.width * PDF.scale;
-        const h = 10 * PDF.scale; // Height of opening
-
-        const color = State.selectedNotes.includes(hairpin) ? "#22c55e" : "#2563eb";
-        
-        if (hairpin.subtype === 'crescendo') {
-             path.setAttribute("d", `M ${startX+width} ${startY-h} L ${startX} ${startY} L ${startX+width} ${startY+h}`);
-        } else {
-             path.setAttribute("d", `M ${startX} ${startY-h} L ${startX+width} ${startY} L ${startX} ${startY+h}`);
-        }
-
-        path.setAttribute("stroke", color);
-        path.setAttribute("stroke-width", "2");
-        path.setAttribute("fill", "none");
-        
-        // Transparent hit area for selection
-        const hitArea = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        hitArea.setAttribute("x", startX);
-        hitArea.setAttribute("y", startY - h);
-        hitArea.setAttribute("width", width);
-        hitArea.setAttribute("height", h*2);
-        hitArea.setAttribute("fill", "transparent");
-        hitArea.setAttribute("class", "placed-hairpin"); 
-
-        svgLayer.appendChild(path);
-        svgLayer.appendChild(hitArea);
-    },
-
     drawNote(x, y, size, pitchIndex, systemId, type, subtype, isDotted, accidental, noteObj) {
         const el = document.createElement('div');
         
+        // Basic Positioning
         el.style.left = (x * PDF.scale) + 'px';
         el.style.top = (y * PDF.scale) + 'px';
         
+        // Selection Class
         const isSelected = State.selectedNotes.includes(noteObj);
         const selClass = isSelected ? ' selected' : '';
 
-        // --- DYNAMICS ---
-        if (type === 'dynamic') {
-            el.className = 'placed-dynamic' + selClass;
-            el.innerText = subtype;
-            
-            const part = State.parts.find(p => p.id === State.activePartId);
-            const system = part.calibration[systemId];
-            if (system) {
-                 const height = Math.abs(system.bottomY - system.topY);
-                 const boxHeight = height * PDF.scale;
-                 const boxWidth = (height * 1.5) * PDF.scale;
-                 el.style.width = boxWidth + 'px';
-                 el.style.height = boxHeight + 'px';
-                 el.style.fontSize = (boxHeight * 0.6) + 'px';
-            } else {
-                 el.style.width = (40 * PDF.scale) + 'px';
-                 el.style.height = (30 * PDF.scale) + 'px';
-            }
-            
-            document.getElementById('overlay-layer').appendChild(el);
-            return;
-        }
-
+        // --- 1. BARLINES ---
         if (type === 'barline') {
             const part = State.parts.find(p => p.id === State.activePartId);
             const system = part.calibration[systemId];
@@ -150,47 +94,42 @@ export const NoteRenderer = {
             
             el.className = `placed-barline ${subtype}` + selClass;
             el.style.height = (height * PDF.scale) + 'px';
+            // Barlines top-align
             el.style.top = (system.topY * PDF.scale) + 'px'; 
             el.style.transform = 'translateX(-50%)';
             document.getElementById('overlay-layer').appendChild(el);
             return;
         }
 
+        // --- 2. CLEFS ---
         if (type === 'clef') {
             const part = State.parts.find(p => p.id === State.activePartId);
             const system = part.calibration[systemId];
             const height = Math.abs(system.bottomY - system.topY);
             
-            let renderY = y;
-            if (subtype === 'treble') {
-                const step = height / 8;
-                renderY = system.topY + (6 * step);
-            } else if (subtype === 'bass') {
-                const step = height / 8;
-                renderY = system.topY + (2 * step);
-            } 
-            
-            const boxHeight = (height * 0.9) * PDF.scale;
-            const boxWidth = (height * 0.6) * PDF.scale;
-
             el.className = `placed-clef ${subtype}` + selClass;
             el.style.fontSize = (height * 0.8 * PDF.scale) + 'px';
-            el.style.width = boxWidth + 'px';
-            el.style.height = boxHeight + 'px';
-            el.style.top = (renderY * PDF.scale) + 'px';
+            el.style.width = (height * (subtype === 'c' ? 0.5 : 0.6) * PDF.scale) + 'px';
+            el.style.height = (height * 0.8 * PDF.scale) + 'px';
             
             if (subtype === 'c') {
                 el.innerText = '𝄡';
                 el.style.top = (y * PDF.scale) + 'px';
                 el.style.transform = 'translate(-50%, -50%)';
+            } else if (subtype === 'treble') {
+                el.innerText = '𝄞';
+                el.style.top = (system.topY * PDF.scale) + 'px'; // Top Align
+                el.style.transform = 'translate(-50%, 0)';
             } else {
-                el.innerText = subtype === 'treble' ? '𝄞' : '𝄢';
+                el.innerText = '𝄢';
+                el.style.top = (system.topY * PDF.scale) + 'px'; // Top Align
                 el.style.transform = 'translate(-50%, 0)';
             }
             document.getElementById('overlay-layer').appendChild(el);
             return;
         }
 
+        // --- 3. TIME/KEY ---
         if (type === 'time' || type === 'key') {
             const part = State.parts.find(p => p.id === State.activePartId);
             const system = part.calibration[systemId];
@@ -203,24 +142,25 @@ export const NoteRenderer = {
             return;
         }
 
+        // --- 4. SYMBOLS ---
         if (type === 'symbol') {
             const part = State.parts.find(p => p.id === State.activePartId);
             const system = part.calibration[systemId];
             const height = Math.abs(system.bottomY - system.topY);
             
             el.className = 'placed-symbol' + selClass;
-            el.innerText = subtype === 'segno' ? '𝄋' : '𝄌';
+            el.innerText = (subtype === 'segno') ? '𝄋' : '𝄌';
             el.style.fontSize = (height * 0.5 * PDF.scale) + 'px';
             document.getElementById('overlay-layer').appendChild(el);
             return;
         }
 
-        // Notes & Rests
+        // --- 5. NOTES & RESTS ---
         let visualWidth, visualHeight;
-        size = size * PDF.scale; 
+        size = size * PDF.scale; // Scale base size
         
         if (type === 'rest') {
-            const dur = parseInt(subtype || 4);
+            const dur = parseInt(subtype || 4); // Default to 4 if subtype missing
              switch(dur) {
                 case 1: case 2: visualHeight = size * 0.5; visualWidth = size * 1.2; break;
                 case 4: visualHeight = size * 3; visualWidth = size * 1.1; break;
