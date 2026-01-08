@@ -1,5 +1,6 @@
 import { CONFIG } from '../config.js';
 import { PDF } from './pdf-engine.js';
+import { State } from '../state.js'; // Added for getPitchName access to parts
 
 export const Utils = {
     getPdfCoords(e, scale) {
@@ -26,8 +27,20 @@ export const Utils = {
             currentMidi += direction;
             while(!whiteKeys.includes(((currentMidi % 12) + 12) % 12)) currentMidi += direction;
         }
-        // Safety fix: Ensure the index is always positive [0-11]
-        const noteIndex = ((currentMidi % 12) + 12) % 12;
-        return CONFIG.NOTE_NAMES[noteIndex];
+        return CONFIG.NOTE_NAMES[((currentMidi % 12) + 12) % 12];
+    },
+
+    // RESTORED: This function was missing but required by the stable InputManager
+    getPitchName(pitchIndex, systemId) {
+        if (!State.activePartId) return "-";
+        const part = State.parts.find(p => p.id === State.activePartId);
+        if (!part || !part.calibration[systemId]) return "-";
+
+        // Simple calculation based on G4 reference (assuming Treble clef logic for now as per stable version)
+        // This effectively polyfills the missing function to prevent the crash.
+        // In a full implementation, this would check the active clef.
+        // For now, we use the logic found in ZoningEngine or similar to ensure "it just works".
+        const refMidi = 67; // G4
+        return this.getNoteName(refMidi, pitchIndex);
     }
 };
