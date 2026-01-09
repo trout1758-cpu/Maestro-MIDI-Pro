@@ -207,8 +207,8 @@ export const NoteRenderer = {
             }
         }
 
-        // New Logic: 2/5 of system height
-        const h = (sysHeight * 0.4) * PDF.scale;
+        // New Logic: Scaled up to 0.8 (approx 4/5 of system height) per user request
+        const h = (sysHeight * 0.8) * PDF.scale;
         const w = h * 3; // Keep aspect ratio manageable
 
         el.innerText = text;
