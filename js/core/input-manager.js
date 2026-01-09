@@ -216,7 +216,7 @@ export const Input = {
 
         part.notes.forEach(n => {
             let cx = n.x, cy = n.y;
-            // Adjustment for hairpin hit detection (check proximity to center)
+            // Adjustment for hairpin hit detection
             if (n.type === 'hairpin') {
                 cx = n.x + (n.width / 2);
             }
@@ -239,85 +239,45 @@ export const Input = {
 
         const zoning = ZoningEngine.checkZone(y);
         
-        // --- TEMPO ---
+        // TEMPO
         if (State.activeTool === 'tempo') {
             if (!zoning) return null;
-            // Tempo restricted to ABOVE staff, but FREE movement
             const height = Math.abs(zoning.bottomY - zoning.topY);
-            if (y > zoning.topY) return null; // Must be above top line
-
-            return {
-                x: x,
-                y: y, // Free Y above staff
-                systemId: zoning.id,
-                type: 'tempo',
-                meta: { height }
-            };
+            if (y > zoning.topY) return null; 
+            return { x: x, y: y, systemId: zoning.id, type: 'tempo', meta: { height } };
         }
 
-        // --- DYNAMICS (Text & Hairpins) ---
+        // DYNAMICS
         if (State.activeTool === 'dynamic' || State.activeTool === 'hairpin') {
             if (!zoning) return null;
-            
-            // Constraint: Must be OUTSIDE the staff (Above Top or Below Bottom)
             const buffer = 5 / PDF.scale;
             if (y > zoning.topY + buffer && y < zoning.bottomY - buffer) return null;
-
             const height = Math.abs(zoning.bottomY - zoning.topY);
-            
-            return {
-                x: x,
-                y: y,
-                systemId: zoning.id,
-                type: State.activeTool,
-                subtype: State.noteDuration, 
-                meta: { height }
-            };
+            return { x: x, y: y, systemId: zoning.id, type: State.activeTool, subtype: State.noteDuration, meta: { height } };
         }
 
-        // --- SYMBOLS (Segno, Coda) ---
+        // SYMBOLS
         if (State.activeTool === 'symbol') {
             if (!zoning) return null;
             const height = Math.abs(zoning.bottomY - zoning.topY);
             
-            // Fermata/Caesura are exceptions (Free horizontal, fixed vertical)
             if (State.noteDuration === 'fermata' || State.noteDuration === 'caesura') {
                 const fixedY = zoning.topY - (height * 0.25);
-                return {
-                    x: x,
-                    y: fixedY,
-                    systemId: zoning.id,
-                    type: 'symbol',
-                    subtype: State.noteDuration,
-                    meta: { height }
-                };
+                return { x: x, y: fixedY, systemId: zoning.id, type: 'symbol', subtype: State.noteDuration, meta: { height } };
             }
             
             const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
-            let closestDist = Infinity; 
-            let closestBar = null;
+            let closestDist = Infinity; let closestBar = null;
+            barlines.forEach(bar => { const dist = Math.abs(bar.x - x); if (dist < closestDist) { closestDist = dist; closestBar = bar; } });
             
-            barlines.forEach(bar => { 
-                const dist = Math.abs(bar.x - x); 
-                if (dist < closestDist) { closestDist = dist; closestBar = bar; } 
-            });
-            
-            // STRICT SNAP: Only place if near a barline
             if (closestBar && closestDist < 20) {
                 const fixedY = zoning.topY - (height * 0.25);
-                return { 
-                    x: closestBar.x, 
-                    y: fixedY, 
-                    systemId: zoning.id, 
-                    type: 'symbol', 
-                    subtype: State.noteDuration,
-                    meta: { height } 
-                };
+                return { x: closestBar.x, y: fixedY, systemId: zoning.id, type: 'symbol', subtype: State.noteDuration, meta: { height } };
             }
             return null;
         }
 
-        // --- CLEFS ---
+        // CLEFS
         if (State.activeTool === 'clef') {
             if (State.noteDuration === 'c') {
                 const snap = ZoningEngine.calculateSnap(y);
@@ -334,7 +294,7 @@ export const Input = {
             return null;
         }
 
-        // --- BARLINES ---
+        // BARLINES
         if (State.activeTool === 'barline') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
@@ -343,27 +303,17 @@ export const Input = {
             return null;
         }
 
-        // --- TIME ---
-        if (State.activeTool === 'time') {
+        // TIME/KEY
+        if (State.activeTool === 'time' || State.activeTool === 'key') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
                 const midY = zoning.topY + (height / 2);
-                return { x, y: midY, systemId: zoning.id, type: 'time', subtype: State.noteDuration, meta: { height } };
+                return { x, y: midY, systemId: zoning.id, type: State.activeTool, subtype: State.noteDuration, meta: { height } };
             }
             return null;
         }
 
-        // --- KEY ---
-        if (State.activeTool === 'key') {
-            if (zoning) {
-                const height = Math.abs(zoning.bottomY - zoning.topY);
-                const midY = zoning.topY + (height / 2);
-                return { x, y: midY, systemId: zoning.id, type: 'key', subtype: State.noteDuration, meta: { height } };
-            }
-            return null;
-        }
-
-        // --- NOTES & RESTS ---
+        // NOTES & RESTS
         if (State.activeTool === 'note' || State.activeTool === 'rest') {
             const snap = ZoningEngine.calculateSnap(y);
             if (snap) {
@@ -417,6 +367,8 @@ export const Input = {
                         State.selectedNotes = State.selectedNotes.filter(n => n !== target);
                         NoteRenderer.renderAll();
                     }
+                    // Update visibility in case we deleted the last selected note
+                    ToolbarView.checkPitchVisibility();
                     return;
                 }
 
@@ -429,6 +381,7 @@ export const Input = {
                             this.dragStartX = x;
                             this.dragStartY = y;
                             this.saveState();
+                            ToolbarView.checkPitchVisibility();
                             return;
                         }
                         if (this.isShift) {
@@ -441,6 +394,7 @@ export const Input = {
                         this.dragStartY = y;
                         this.saveState();
                         NoteRenderer.renderAll();
+                        ToolbarView.checkPitchVisibility();
                         return;
                     }
                     
@@ -452,6 +406,8 @@ export const Input = {
                     if (!this.isShift) State.selectedNotes = [];
                     
                     NoteRenderer.renderAll(); 
+                    // Update visibility immediately after clearing selection
+                    ToolbarView.checkPitchVisibility();
 
                     this.selectBox = document.createElement('div');
                     this.selectBox.className = 'selection-box';
@@ -482,7 +438,6 @@ export const Input = {
                         return; 
                     }
                     
-                    // --- HAIRPIN DRAGGING LOGIC ---
                     if (State.activeTool === 'hairpin') {
                         const item = this.calculatePlacement(x, y);
                         if (item) {
@@ -491,7 +446,6 @@ export const Input = {
                             this.hairpinOriginY = item.y;
                             this.hairpinSystemId = item.systemId;
                             
-                            // Create temp SVG element for live feedback
                             const svgLayer = document.querySelector('#overlay-layer svg');
                             if (svgLayer) {
                                 this.hairpinTempPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -504,36 +458,27 @@ export const Input = {
                         return;
                     }
 
-                    // --- TEMPO PLACEMENT ---
                     if (State.activeTool === 'tempo') {
                         const item = this.calculatePlacement(x, y);
                         if (item) {
                             this.saveState();
-                            // 1. Create the note first (with default values)
                             const newTempo = {
                                 x: item.x,
                                 y: item.y,
                                 systemId: item.systemId,
                                 type: 'tempo',
-                                bpm: '', // Empty initially? Or default?
-                                duration: 4, // Default quarter
+                                bpm: '', 
+                                duration: 4, 
                                 size: 40 
                             };
                             part.notes.push(newTempo);
-                            
-                            // 2. Render it (blue box appears)
                             NoteRenderer.renderAll();
-                            
-                            // 3. Mark it as "pending" for the modal cancel logic
                             State.pendingTempoNote = newTempo;
-                            
-                            // 4. Open Modal
                             ModalView.openTempoModal(); 
                         }
                         return;
                     }
 
-                    // --- STANDARD ITEM PLACEMENT ---
                     const item = this.calculatePlacement(x, y);
                     if (item) {
                         this.saveState();
@@ -573,6 +518,9 @@ export const Input = {
                 this.selectBox.remove();
                 this.selectBox = null;
                 NoteRenderer.renderAll();
+                
+                // Update Pitch Visibility after box selection completes
+                ToolbarView.checkPitchVisibility();
             }
         }
         
@@ -612,7 +560,6 @@ export const Input = {
             const { x, y } = Utils.getPdfCoords(e, PDF.scale);
             let width = x - this.hairpinOriginX;
             
-            // Only allow forward dragging (width > 0)
             if (width > 10) { 
                 this.saveState();
                 const part = State.parts.find(p => p.id === State.activePartId);
@@ -661,7 +608,7 @@ export const Input = {
                  n.x += dx;
                  const newY = n.y + dy;
                  
-                 // Smart Y Snapping for Notes/Rests vs Free for Dynamics/Symbols
+                 // Smart Y Snapping
                  if (n.type === 'note' || n.type === 'rest' || (n.type === 'clef' && n.subtype === 'c')) {
                      const zone = ZoningEngine.checkZone(newY);
                      if (zone) {
@@ -689,6 +636,15 @@ export const Input = {
              });
              this.dragStartX = x;
              this.dragStartY = y;
+             
+             // UPDATE PITCH DISPLAY DURING DRAG
+             if (State.selectedNotes.length === 1) {
+                 const n = State.selectedNotes[0];
+                 if (n.type === 'note') {
+                     ToolbarView.updatePitch(Utils.getPitchName(n.pitchIndex, n.systemId));
+                 }
+             }
+
              NoteRenderer.renderAll(); 
              return;
         }
@@ -697,8 +653,6 @@ export const Input = {
              const startX = this.hairpinOriginX * PDF.scale;
              const startY = this.hairpinOriginY * PDF.scale;
              const currX = x * PDF.scale;
-             
-             // Visual width can't be negative for hairpins
              const width = Math.max(0, currX - startX);
              const endX = startX + width;
              
@@ -750,6 +704,9 @@ export const Input = {
         if (State.activePartId && !this.isSpace) {
             if (State.isTieMode || State.mode === 'delete' || State.mode === 'select') {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
+                // We do NOT reset pitch here if in Select mode, 
+                // because we might want to see the selected note's pitch if we implement hover-over logic later.
+                // For now, if dragging, we update it above. If just hovering in select mode, we leave it alone.
                 return; 
             }
             
@@ -768,12 +725,10 @@ export const Input = {
                     return;
                 }
 
-                // --- GHOST TEMPO ---
+                // GHOST TEMPO
                 if (item.type === 'tempo') {
-                    // Revised size: Scaled up to 0.8 (approx 4/5 of system height) per user request
                     const h = (item.meta.height * 0.8) * PDF.scale;
-                    const w = h * 3; // Aspect ratio approx 3:1
-                    
+                    const w = h * 3; 
                     this.ghostNote.classList.add('visible', 'ghost-dynamic'); 
                     this.ghostNote.style.width = w + 'px';
                     this.ghostNote.style.height = h + 'px';
@@ -793,7 +748,7 @@ export const Input = {
                     return;
                 }
 
-                // --- GHOST DYNAMICS ---
+                // GHOST DYNAMICS
                 if (item.type === 'dynamic') {
                     const boxHeight = item.meta.height * 0.6 * PDF.scale; 
                     this.ghostNote.classList.add('visible', 'ghost-dynamic');
@@ -817,7 +772,6 @@ export const Input = {
                     return;
                 }
 
-                // ... Other Ghosts ...
                 if (item.type === 'hairpin') {
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
@@ -922,6 +876,8 @@ export const Input = {
                     this.ghostNote.style.height = visualHeight + 'px'; 
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
+                    
+                    // UPDATE PITCH DISPLAY
                     if (item.type === 'note') {
                          ToolbarView.updatePitch(Utils.getPitchName(item.pitchIndex, item.systemId));
                     } else {
