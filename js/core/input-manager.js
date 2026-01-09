@@ -6,8 +6,10 @@ import { ZoningEngine } from './zoning-engine.js';
 import { CalibrationController } from '../controllers/calibration-controller.js';
 import { NoteRenderer } from './note-renderer.js';
 import { ToolbarView } from '../ui/toolbar-view.js';
+import { ModalView } from '../ui/modal-view.js';
 
 export const Input = {
+    // ... existing ...
     viewport: null,
     isSpace: false, 
     isDragging: false, 
@@ -72,7 +74,7 @@ export const Input = {
             this.ghostNote = document.querySelector('.ghost-note');
         }
     },
-
+    // ... undo/redo/saveState/keys/pan/snap methods (unchanged) ...
     saveState() {
         if (!State.activePartId) return;
         const part = State.parts.find(p => p.id === State.activePartId);
@@ -83,7 +85,6 @@ export const Input = {
             if (this.undoStack.length > 50) this.undoStack.shift();
         }
     },
-
     undo() {
         if (!State.activePartId || this.undoStack.length === 0) return;
         const part = State.parts.find(p => p.id === State.activePartId);
@@ -95,7 +96,6 @@ export const Input = {
             NoteRenderer.renderAll();
         }
     },
-
     redo() {
         if (!State.activePartId || this.redoStack.length === 0) return;
         const part = State.parts.find(p => p.id === State.activePartId);
@@ -107,26 +107,18 @@ export const Input = {
             NoteRenderer.renderAll();
         }
     },
-
     handleKeyDown(e) {
         if (document.activeElement.tagName === 'INPUT') return;
-
         if (e.key === 'Shift') this.isShift = true;
-        
         if (e.key === '.' && !e.repeat) {
             e.preventDefault();
             const dotBtn = document.querySelector('button[title="Dot"]');
-            if (dotBtn) {
-                ToolbarView.toggleDot(dotBtn);
-                this.handleGlobalMove({ clientX: this.mouseX, clientY: this.mouseY });
-            }
+            if (dotBtn) { ToolbarView.toggleDot(dotBtn); this.handleGlobalMove({ clientX: this.mouseX, clientY: this.mouseY }); }
         }
-
         if (e.code === 'Space' && !e.repeat) {
             e.preventDefault(); this.isSpace = true;
             if(this.viewport) this.viewport.classList.add('grab-mode');
         }
-        
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
             e.preventDefault();
             if (e.shiftKey) this.redo(); else this.undo();
@@ -134,7 +126,6 @@ export const Input = {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { 
              e.preventDefault(); this.redo();
         }
-        
         if (e.key === 'Delete' || e.key === 'Backspace') {
              if (State.selectedNotes.length > 0) {
                  this.saveState();
@@ -147,27 +138,19 @@ export const Input = {
              }
         }
     },
-
     handleKeyUp(e) {
         if (document.activeElement.tagName === 'INPUT') return;
-
         if (e.key === 'Shift') this.isShift = false;
-        
         if (e.key === '.') {
             e.preventDefault();
             const dotBtn = document.querySelector('button[title="Dot"]');
-            if (dotBtn) {
-                ToolbarView.toggleDot(dotBtn); 
-                this.handleGlobalMove({ clientX: this.mouseX, clientY: this.mouseY });
-            }
+            if (dotBtn) { ToolbarView.toggleDot(dotBtn); this.handleGlobalMove({ clientX: this.mouseX, clientY: this.mouseY }); }
         }
-
         if (e.code === 'Space') {
             this.isSpace = false; this.isDragging = false;
             if(this.viewport) this.viewport.classList.remove('grab-mode', 'grabbing');
         }
     },
-
     handleWheel(e) {
         if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
@@ -178,7 +161,6 @@ export const Input = {
             this.viewport.scrollLeft += e.deltaY;
         }
     },
-
     handlePanStart(e) {
         if (this.isSpace && this.viewport) {
             this.isDragging = true;
@@ -188,7 +170,6 @@ export const Input = {
             e.preventDefault(); e.stopPropagation();
         }
     },
-
     findSnapX(x, systemId) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
@@ -203,23 +184,22 @@ export const Input = {
         if (closestX !== null && closestDist * PDF.scale < 20) return closestX;
         return null;
     },
-
     findTargetNote(x, y) {
         const part = State.parts.find(p => p.id === State.activePartId);
         if (!part) return null;
         
         const THRESHOLD = 30 / PDF.scale;
-        
         let closest = null;
         let minDist = Infinity;
 
         part.notes.forEach(n => {
             let cx = n.x, cy = n.y;
-            // Adjustment for hairpin hit detection (check proximity to center)
-            if (n.type === 'hairpin') {
-                cx = n.x + (n.width / 2);
+            if (n.type === 'hairpin') cx = n.x + (n.width / 2);
+            // Larger hit area for tempo
+            if (n.type === 'tempo') {
+                 // Rough box check might be better, but simple dist works for now
             }
-            
+
             const dx = cx - x;
             const dy = cy - y;
             const dist = Math.sqrt(dx*dx + dy*dy);
@@ -228,7 +208,6 @@ export const Input = {
                 closest = n;
             }
         });
-        
         return closest;
     },
 
@@ -238,18 +217,27 @@ export const Input = {
 
         const zoning = ZoningEngine.checkZone(y);
         
+        // --- TEMPO ---
+        if (State.activeTool === 'tempo') {
+            if (!zoning) return null;
+            // Tempo restricted to above staff
+            const height = Math.abs(zoning.bottomY - zoning.topY);
+            const fixedY = zoning.topY - (height * 0.4); // Higher than symbols
+            return {
+                x: x,
+                y: fixedY,
+                systemId: zoning.id,
+                type: 'tempo',
+                meta: { height }
+            };
+        }
+
         // --- DYNAMICS (Text & Hairpins) ---
         if (State.activeTool === 'dynamic' || State.activeTool === 'hairpin') {
             if (!zoning) return null;
             
-            // Text directions must be strictly BELOW the staff
-            if (['rit.', 'acc.', 'poco', 'a_tempo'].includes(State.noteDuration)) {
-                if (y < zoning.bottomY) return null;
-            } else {
-                // Regular dynamics can't be inside staff
-                const buffer = 5 / PDF.scale;
-                if (y > zoning.topY + buffer && y < zoning.bottomY - buffer) return null;
-            }
+            const buffer = 5 / PDF.scale;
+            if (y > zoning.topY + buffer && y < zoning.bottomY - buffer) return null;
 
             const height = Math.abs(zoning.bottomY - zoning.topY);
             
@@ -263,13 +251,11 @@ export const Input = {
             };
         }
 
-        // --- SYMBOLS (Segno, Coda, Fermata, Caesura) ---
+        // --- SYMBOLS ---
         if (State.activeTool === 'symbol') {
             if (!zoning) return null;
 
             const height = Math.abs(zoning.bottomY - zoning.topY);
-            
-            // Fermata/Caesura: Floating X, Fixed Y (Above Staff)
             if (State.noteDuration === 'fermata' || State.noteDuration === 'caesura') {
                 const fixedY = zoning.topY - (height * 0.25);
                 return {
@@ -282,7 +268,6 @@ export const Input = {
                 };
             }
             
-            // Segno/Coda: Snap to Barline
             const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
             let closestDist = Infinity; 
             let closestBar = null;
@@ -306,7 +291,7 @@ export const Input = {
             return null;
         }
 
-        // --- CLEFS ---
+        // --- CLEFS, BARLINES, TIME, KEY, NOTES (Unchanged) ---
         if (State.activeTool === 'clef') {
             if (State.noteDuration === 'c') {
                 const snap = ZoningEngine.calculateSnap(y);
@@ -322,8 +307,6 @@ export const Input = {
             }
             return null;
         }
-
-        // --- BARLINES ---
         if (State.activeTool === 'barline') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
@@ -331,8 +314,6 @@ export const Input = {
             }
             return null;
         }
-
-        // --- TIME ---
         if (State.activeTool === 'time') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
@@ -341,8 +322,6 @@ export const Input = {
             }
             return null;
         }
-
-        // --- KEY ---
         if (State.activeTool === 'key') {
             if (zoning) {
                 const height = Math.abs(zoning.bottomY - zoning.topY);
@@ -351,8 +330,6 @@ export const Input = {
             }
             return null;
         }
-
-        // --- NOTES & RESTS ---
         if (State.activeTool === 'note' || State.activeTool === 'rest') {
             const snap = ZoningEngine.calculateSnap(y);
             if (snap) {
@@ -364,19 +341,7 @@ export const Input = {
                 const system = part.calibration[snap.systemId];
                 const height = Math.abs(system.bottomY - system.topY);
                 const noteSize = height / 4;
-                
-                return { 
-                    x: finalX, 
-                    y: snap.y, 
-                    size: noteSize, 
-                    systemId: snap.systemId, 
-                    pitchIndex: snap.pitchIndex, 
-                    duration: State.noteDuration, 
-                    type: State.activeTool, 
-                    isDotted: State.isDotted, 
-                    accidental: State.activeAccidental,
-                    meta: { height, noteSize } 
-                };
+                return { x: finalX, y: snap.y, size: noteSize, systemId: snap.systemId, pitchIndex: snap.pitchIndex, duration: State.noteDuration, type: State.activeTool, isDotted: State.isDotted, accidental: State.activeAccidental, meta: { height, noteSize } };
             }
         }
         
@@ -385,7 +350,6 @@ export const Input = {
 
     handleCanvasDown(e) {
         if (this.isSpace) return;
-        
         if (State.isCalibrating) {
             const { y } = Utils.getPdfCoords(e, PDF.scale);
             CalibrationController.handleDown(y);
@@ -412,6 +376,16 @@ export const Input = {
                 if (State.mode === 'select') {
                     const target = this.findTargetNote(x, y);
                     if (target) {
+                        // Special case: Clicking a tempo marking in select mode opens editor
+                        if (target.type === 'tempo') {
+                            // Select it first
+                            State.selectedNotes = [target];
+                            NoteRenderer.renderAll();
+                            // Open modal
+                            ModalView.openTempoModal({ unit: target.duration, bpm: target.bpm });
+                            return; 
+                        }
+
                         if (State.selectedNotes.includes(target)) {
                             this.isDraggingSelection = true;
                             this.dragStartX = x;
@@ -435,12 +409,9 @@ export const Input = {
                     this.isSelectingBox = true;
                     this.selectStartX = x;
                     this.selectStartY = y;
-                    
                     if(this.selectBox) this.selectBox.remove();
                     if (!this.isShift) State.selectedNotes = [];
-                    
                     NoteRenderer.renderAll(); 
-
                     this.selectBox = document.createElement('div');
                     this.selectBox.className = 'selection-box';
                     this.selectBox.style.left = (x * PDF.scale) + 'px';
@@ -452,6 +423,7 @@ export const Input = {
                 }
 
                 if (State.mode === 'add') {
+                    // ... Tie and Hairpin logic ...
                     if (State.isTieMode) {
                         const clickedNote = this.findTargetNote(x, y);
                         if (clickedNote && clickedNote.type === 'note') {
@@ -469,30 +441,37 @@ export const Input = {
                         }
                         return; 
                     }
-                    
-                    // --- HAIRPIN DRAGGING LOGIC ---
                     if (State.activeTool === 'hairpin') {
+                         const item = this.calculatePlacement(x, y);
+                         if (item) {
+                             this.isDraggingHairpin = true;
+                             this.hairpinOriginX = item.x;
+                             this.hairpinOriginY = item.y;
+                             this.hairpinSystemId = item.systemId;
+                             const svgLayer = document.querySelector('#overlay-layer svg');
+                             if (svgLayer) {
+                                 this.hairpinTempPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                                 this.hairpinTempPath.setAttribute("stroke", "#2563eb");
+                                 this.hairpinTempPath.setAttribute("stroke-width", "2");
+                                 this.hairpinTempPath.setAttribute("fill", "none");
+                                 svgLayer.appendChild(this.hairpinTempPath);
+                             }
+                         }
+                         return;
+                    }
+
+                    // --- TEMPO PLACEMENT ---
+                    if (State.activeTool === 'tempo') {
                         const item = this.calculatePlacement(x, y);
                         if (item) {
-                            this.isDraggingHairpin = true;
-                            this.hairpinOriginX = item.x;
-                            this.hairpinOriginY = item.y;
-                            this.hairpinSystemId = item.systemId;
-                            
-                            // Create temp SVG element for live feedback
-                            const svgLayer = document.querySelector('#overlay-layer svg');
-                            if (svgLayer) {
-                                this.hairpinTempPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                                this.hairpinTempPath.setAttribute("stroke", "#2563eb");
-                                this.hairpinTempPath.setAttribute("stroke-width", "2");
-                                this.hairpinTempPath.setAttribute("fill", "none");
-                                svgLayer.appendChild(this.hairpinTempPath);
-                            }
+                            this.saveState();
+                            // Don't place immediately. Open Modal.
+                            State.pendingTempoPlacement = { ...item };
+                            ModalView.openTempoModal(); 
                         }
                         return;
                     }
 
-                    // --- STANDARD ITEM PLACEMENT ---
                     const item = this.calculatePlacement(x, y);
                     if (item) {
                         this.saveState();
@@ -504,20 +483,19 @@ export const Input = {
             }
         }
     },
-
+    // ... GlobalUp and GlobalMove (unchanged except for ghost note update)
     handleGlobalUp(e) {
+        // ... selection box logic ...
         if (this.isSelectingBox) {
             this.isSelectingBox = false;
             if (this.selectBox) {
                 const { x, y } = Utils.getPdfCoords(e, PDF.scale);
                 const startX = this.selectStartX;
                 const startY = this.selectStartY;
-                
                 const minX = Math.min(startX, x);
                 const maxX = Math.max(startX, x);
                 const minY = Math.min(startY, y);
                 const maxY = Math.max(startY, y);
-                
                 const part = State.parts.find(p => p.id === State.activePartId);
                 if (part) {
                     const notesInBox = part.notes.filter(n => {
@@ -534,21 +512,11 @@ export const Input = {
                 NoteRenderer.renderAll();
             }
         }
-        
-        if (this.isDraggingSelection) {
-            this.isDraggingSelection = false;
-        }
-
-        if (CalibrationController.draggingLine) {
-            CalibrationController.draggingLine = null;
-        }
-        
+        if (this.isDraggingSelection) this.isDraggingSelection = false;
+        if (CalibrationController.draggingLine) CalibrationController.draggingLine = null;
         if (this.isDraggingTie) {
             this.isDraggingTie = false;
-            if (this.tempTiePath) {
-                this.tempTiePath.remove();
-                this.tempTiePath = null;
-            }
+            if (this.tempTiePath) { this.tempTiePath.remove(); this.tempTiePath = null; }
             const { x, y } = Utils.getPdfCoords(e, PDF.scale);
             const targetNote = this.findTargetNote(x, y);
             if (targetNote && this.tieStartNote) {
@@ -560,18 +528,11 @@ export const Input = {
             }
             this.tieStartNote = null;
         }
-
         if (this.isDraggingHairpin) {
             this.isDraggingHairpin = false;
-            if (this.hairpinTempPath) {
-                this.hairpinTempPath.remove();
-                this.hairpinTempPath = null;
-            }
-            
+            if (this.hairpinTempPath) { this.hairpinTempPath.remove(); this.hairpinTempPath = null; }
             const { x, y } = Utils.getPdfCoords(e, PDF.scale);
             let width = x - this.hairpinOriginX;
-            
-            // Only allow forward dragging (width > 0)
             if (width > 10) { 
                 this.saveState();
                 const part = State.parts.find(p => p.id === State.activePartId);
@@ -586,7 +547,6 @@ export const Input = {
                 NoteRenderer.renderAll();
             }
         }
-
         if (this.isDragging) {
             this.isDragging = false;
             if(this.viewport) this.viewport.classList.remove('grabbing');
@@ -619,8 +579,6 @@ export const Input = {
              State.selectedNotes.forEach(n => {
                  n.x += dx;
                  const newY = n.y + dy;
-                 
-                 // Smart Y Snapping for Notes/Rests vs Free for Dynamics/Symbols
                  if (n.type === 'note' || n.type === 'rest' || (n.type === 'clef' && n.subtype === 'c')) {
                      const zone = ZoningEngine.checkZone(newY);
                      if (zone) {
@@ -642,6 +600,7 @@ export const Input = {
                          const height = Math.abs(zone.bottomY - zone.topY);
                          if (n.type === 'barline') n.y = zone.topY;
                          if (n.type === 'time' || n.type === 'key') n.y = zone.topY + (height / 2);
+                         // Tempo check zone change?
                      }
                      n.y = newY;
                  }
@@ -656,13 +615,9 @@ export const Input = {
              const startX = this.hairpinOriginX * PDF.scale;
              const startY = this.hairpinOriginY * PDF.scale;
              const currX = x * PDF.scale;
-             
-             // Visual width can't be negative for hairpins
              const width = Math.max(0, currX - startX);
              const endX = startX + width;
-             
              let halfOpening = 10 * PDF.scale; 
-             
              const part = State.parts.find(p => p.id === State.activePartId);
              if (part && this.hairpinSystemId !== null) {
                  const system = part.calibration[this.hairpinSystemId];
@@ -671,11 +626,9 @@ export const Input = {
                      halfOpening = (sysHeight * (3/16)) * PDF.scale; 
                  }
              }
-             
              const midY = startY;
              const topY = midY - halfOpening;
              const botY = midY + halfOpening;
-
              if (State.noteDuration === 'crescendo') {
                  this.hairpinTempPath.setAttribute("d", `M ${endX} ${topY} L ${startX} ${midY} L ${endX} ${botY}`);
              } else {
@@ -715,7 +668,6 @@ export const Input = {
             
             const rect = PDF.overlay.getBoundingClientRect(); 
             if (Utils.checkCanvasBounds(e, rect)) {
-                
                 this.ghostNote.className = 'ghost-note'; 
                 this.ghostNote.innerText = '';
                 this.ghostNote.style = '';
@@ -728,25 +680,18 @@ export const Input = {
                     return;
                 }
 
-                // --- GHOST DYNAMICS & TEXT DIRECTIONS ---
-                if (item.type === 'dynamic') {
-                    const boxHeight = item.meta.height * 0.6 * PDF.scale; 
-                    this.ghostNote.classList.add('visible', 'ghost-dynamic');
-                    this.ghostNote.style.height = boxHeight + 'px';
-                    this.ghostNote.style.minWidth = boxHeight + 'px';
-                    this.ghostNote.innerText = item.subtype; 
+                // --- GHOST TEMPO ---
+                if (item.type === 'tempo') {
+                    // "Blue Border Box that fits around set tempo"
+                    // Approx size for "Quarter = 150"
+                    const w = 120 * PDF.scale;
+                    const h = 40 * PDF.scale;
                     
-                    this.ghostNote.style.fontFamily = "'Noto Music', serif";
-                    // Smaller font for longer text instructions
-                    if (['rit.', 'acc.', 'poco', 'a_tempo'].includes(item.subtype)) {
-                         this.ghostNote.style.fontSize = (boxHeight * 0.5) + 'px';
-                         this.ghostNote.style.fontStyle = 'italic';
-                         this.ghostNote.style.fontFamily = 'serif';
-                         this.ghostNote.style.padding = '0 5px';
-                    } else {
-                         this.ghostNote.style.fontSize = (boxHeight * 0.8) + 'px';
-                    }
-
+                    this.ghostNote.classList.add('visible', 'ghost-dynamic'); 
+                    this.ghostNote.style.width = w + 'px';
+                    this.ghostNote.style.height = h + 'px';
+                    this.ghostNote.innerText = "Tempo";
+                    this.ghostNote.style.fontSize = (h * 0.4) + 'px';
                     this.ghostNote.style.display = 'flex';
                     this.ghostNote.style.alignItems = 'center';
                     this.ghostNote.style.justifyContent = 'center';
@@ -761,12 +706,32 @@ export const Input = {
                     return;
                 }
 
+                // ... Other Ghosts (dynamic, barline, etc - Unchanged) ...
+                if (item.type === 'dynamic') {
+                    const boxHeight = item.meta.height * 0.6 * PDF.scale;
+                    this.ghostNote.classList.add('visible', 'ghost-dynamic');
+                    this.ghostNote.style.height = boxHeight + 'px';
+                    this.ghostNote.style.minWidth = boxHeight + 'px';
+                    this.ghostNote.innerText = item.subtype;
+                    this.ghostNote.style.fontFamily = "'Noto Music', serif";
+                    this.ghostNote.style.fontSize = (boxHeight * 0.8) + 'px';
+                    this.ghostNote.style.display = 'flex';
+                    this.ghostNote.style.alignItems = 'center';
+                    this.ghostNote.style.justifyContent = 'center';
+                    this.ghostNote.style.border = '2px solid rgba(56, 189, 248, 0.6)';
+                    this.ghostNote.style.color = 'rgba(56, 189, 248, 0.6)';
+                    this.ghostNote.style.borderRadius = '4px';
+                    this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
+                    this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
+                    this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                    ToolbarView.updatePitch("-");
+                    return;
+                }
                 if (item.type === 'hairpin') {
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                     return;
                 }
-
                 if (item.type === 'barline') {
                     this.ghostNote.classList.add('visible', 'ghost-barline', item.subtype);
                     this.ghostNote.style.height = (item.meta.height * PDF.scale) + 'px';
@@ -776,7 +741,6 @@ export const Input = {
                     ToolbarView.updatePitch("-");
                     return;
                 }
-
                 if (item.type === 'clef') {
                     if (item.subtype === 'c') {
                         this.ghostNote.classList.add('visible', 'ghost-clef', 'c');
@@ -800,7 +764,6 @@ export const Input = {
                     ToolbarView.updatePitch("-");
                     return;
                 }
-
                 if (item.type === 'symbol') {
                     this.ghostNote.classList.add('visible', 'ghost-symbol');
                     let symbolChar = '';
@@ -818,7 +781,6 @@ export const Input = {
                     ToolbarView.updatePitch("-");
                     return;
                 }
-
                 if (item.type === 'time' || item.type === 'key') {
                     const boxHeight = item.meta.height * PDF.scale;
                     const boxWidth = (item.meta.height * 0.6) * PDF.scale;
@@ -831,12 +793,9 @@ export const Input = {
                     ToolbarView.updatePitch("-");
                     return;
                 }
-
-                // NOTES & RESTS
                 if (item.type === 'note' || item.type === 'rest') {
                     let visualWidth, visualHeight;
                     const noteSize = item.meta.noteSize;
-                    
                     if (item.type === 'rest') {
                         const dur = parseInt(item.duration);
                          switch(dur) {
@@ -866,19 +825,16 @@ export const Input = {
                         this.ghostNote.style.borderRadius = '50%';
                         this.ghostNote.style.transform = "translate(-50%, -50%) rotate(-15deg)";
                     }
-                    
                     this.ghostNote.style.width = visualWidth + 'px'; 
                     this.ghostNote.style.height = visualHeight + 'px'; 
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px'; 
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
-                    
                     if (item.type === 'note') {
                          ToolbarView.updatePitch(Utils.getPitchName(item.pitchIndex, item.systemId));
                     } else {
                          ToolbarView.updatePitch("-");
                     }
                 }
-
             } else {
                 if(this.ghostNote) this.ghostNote.classList.remove('visible');
                 ToolbarView.updatePitch("-");
