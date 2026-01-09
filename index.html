@@ -105,12 +105,12 @@
 
     <!-- CONTROL DECK -->
     <section id="control-deck" class="bg-white border-b border-gray-200 shadow-sm z-10 flex flex-col toolbar-disabled transition-all duration-300">
-        <!-- TABS (Select Removed) -->
+        <!-- TABS -->
         <div class="flex items-center justify-center gap-1 pt-1 border-b border-gray-100 overflow-x-auto">
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('measure')">Measure</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('signature')">Signature</button>
             <button class="tab-btn active" onclick="ToolbarView.toggleCategory('noterest')">Notes/Rests</button>
-            <button class="tab-btn" onclick="ToolbarView.toggleCategory('rhythm')">Rhythm/Duration</button>
+            <!-- Rhythm Tab Removed -->
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('dynamics')">Dynamics</button>
             <button class="tab-btn" onclick="ToolbarView.toggleCategory('articulation')">Articulation</button>
         </div>
@@ -210,23 +210,7 @@
                 <div>
                     <button class="maestro-btn note-grid-btn text-4xl pb-4" title="Dot" onclick="ToolbarView.toggleDot(this)">.</button>
                 </div>
-            </div>
-
-            <!-- RHYTHM/DURATION -->
-            <div id="tools-rhythm" class="flex items-center justify-center w-full gap-16 hidden">
-                <button class="maestro-btn placeholder double-width-btn" title="Tempo Marking">Tempo</button>
-                <div class="flex flex-col gap-2">
-                    <div class="flex gap-2">
-                        <button class="maestro-btn placeholder note-grid-btn" title="Fermata">𝄐</button>
-                        <button class="maestro-btn placeholder note-grid-btn text-xl" title="Caesura">//</button>
-                        <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="a tempo">a t.</button>
-                    </div>
-                    <div class="flex gap-2">
-                        <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="ritardando">rit.</button>
-                        <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="accelerando">acc.</button>
-                        <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="poco">poco</button>
-                    </div>
-                </div>
+                <!-- NEW: Tie & Tuplet Stack (Moved from Rhythm) -->
                 <div class="flex flex-col gap-2 relative">
                     <button class="maestro-btn placeholder double-width-btn flex flex-col items-center justify-center p-0" title="Tie" onclick="ToolbarView.toggleTie(this)">
                         <span class="text-3xl leading-3 mt-3 transform scale-x-[4] origin-center">⁀</span>
@@ -252,31 +236,55 @@
                 </div>
             </div>
 
-            <!-- DYNAMICS (UPDATED: ENABLED) -->
+            <!-- DYNAMICS (UPDATED) -->
             <div id="tools-dynamics" class="flex gap-6 items-center justify-center w-full hidden">
-                <div class="flex flex-col gap-2">
-                    <div class="flex gap-2 items-center">
-                         <button class="maestro-btn tool-btn note-grid-btn" title="mf" onclick="ToolbarView.selectTool('dynamic', 'mf', this)">𝆐𝆑</button>
-                         <button class="maestro-btn tool-btn note-grid-btn" title="f" onclick="ToolbarView.selectTool('dynamic', 'f', this)">𝆑</button>
-                         <button class="maestro-btn tool-btn note-grid-btn" title="ff" onclick="ToolbarView.selectTool('dynamic', 'ff', this)">𝆑𝆑</button>
-                         <button class="maestro-btn tool-btn note-grid-btn" title="fff" onclick="ToolbarView.selectTool('dynamic', 'fff', this)">𝆑𝆑𝆑</button>
-                         <button class="maestro-btn tool-btn double-width-btn flex items-center justify-center overflow-hidden" title="Crescendo" onclick="ToolbarView.selectTool('hairpin', 'crescendo', this)">
-                            <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&lt;</span>
-                         </button>
-                    </div>
-                    <div class="flex gap-2 items-center">
-                         <button class="maestro-btn tool-btn note-grid-btn" title="mp" onclick="ToolbarView.selectTool('dynamic', 'mp', this)">𝆐𝆏</button>
-                         <button class="maestro-btn tool-btn note-grid-btn" title="p" onclick="ToolbarView.selectTool('dynamic', 'p', this)">𝆏</button>
-                         <button class="maestro-btn tool-btn note-grid-btn" title="pp" onclick="ToolbarView.selectTool('dynamic', 'pp', this)">𝆏𝆏</button>
-                         <button class="maestro-btn tool-btn note-grid-btn" title="ppp" onclick="ToolbarView.selectTool('dynamic', 'ppp', this)">𝆏𝆏𝆏</button>
-                         <button class="maestro-btn tool-btn double-width-btn flex items-center justify-center overflow-hidden" title="Diminuendo" onclick="ToolbarView.selectTool('hairpin', 'diminuendo', this)">
-                            <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&gt;</span>
-                         </button>
-                    </div>
+                
+                <!-- MOVED FROM RHYTHM: Tempo & Duration Modifiers -->
+                <div class="flex items-center gap-6">
+                     <button class="maestro-btn placeholder double-width-btn" title="Tempo Marking">Tempo</button>
+                     <div class="flex flex-col gap-2">
+                         <div class="flex gap-2">
+                             <button class="maestro-btn placeholder note-grid-btn" title="Fermata">𝄐</button>
+                             <button class="maestro-btn placeholder note-grid-btn text-xl" title="Caesura">//</button>
+                             <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="a tempo">a t.</button>
+                         </div>
+                         <div class="flex gap-2">
+                             <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="ritardando">rit.</button>
+                             <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="accelerando">acc.</button>
+                             <button class="maestro-btn placeholder note-grid-btn text-xs italic font-serif" title="poco">poco</button>
+                         </div>
+                     </div>
                 </div>
+
+                <!-- NEW SEPARATOR -->
                 <div class="w-px h-20 bg-gray-300"></div>
-                <div>
-                    <button class="maestro-btn tool-btn note-grid-btn text-sm italic font-serif" title="sfz" onclick="ToolbarView.selectTool('dynamic', 'sfz', this)">sfz</button>
+
+                <!-- ORIGINAL DYNAMICS (Merged sfz without separator) -->
+                <div class="flex items-center gap-6">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex gap-2 items-center">
+                             <button class="maestro-btn tool-btn note-grid-btn" title="mf" onclick="ToolbarView.selectTool('dynamic', 'mf', this)">𝆐𝆑</button>
+                             <button class="maestro-btn tool-btn note-grid-btn" title="f" onclick="ToolbarView.selectTool('dynamic', 'f', this)">𝆑</button>
+                             <button class="maestro-btn tool-btn note-grid-btn" title="ff" onclick="ToolbarView.selectTool('dynamic', 'ff', this)">𝆑𝆑</button>
+                             <button class="maestro-btn tool-btn note-grid-btn" title="fff" onclick="ToolbarView.selectTool('dynamic', 'fff', this)">𝆑𝆑𝆑</button>
+                             <button class="maestro-btn tool-btn double-width-btn flex items-center justify-center overflow-hidden" title="Crescendo" onclick="ToolbarView.selectTool('hairpin', 'crescendo', this)">
+                                <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&lt;</span>
+                             </button>
+                        </div>
+                        <div class="flex gap-2 items-center">
+                             <button class="maestro-btn tool-btn note-grid-btn" title="mp" onclick="ToolbarView.selectTool('dynamic', 'mp', this)">𝆐𝆏</button>
+                             <button class="maestro-btn tool-btn note-grid-btn" title="p" onclick="ToolbarView.selectTool('dynamic', 'p', this)">𝆏</button>
+                             <button class="maestro-btn tool-btn note-grid-btn" title="pp" onclick="ToolbarView.selectTool('dynamic', 'pp', this)">𝆏𝆏</button>
+                             <button class="maestro-btn tool-btn note-grid-btn" title="ppp" onclick="ToolbarView.selectTool('dynamic', 'ppp', this)">𝆏𝆏𝆏</button>
+                             <button class="maestro-btn tool-btn double-width-btn flex items-center justify-center overflow-hidden" title="Diminuendo" onclick="ToolbarView.selectTool('hairpin', 'diminuendo', this)">
+                                <span class="text-3xl font-light transform scale-x-[3.5] origin-center -mt-1">&gt;</span>
+                             </button>
+                        </div>
+                    </div>
+                    <!-- sfz (No Separator) -->
+                    <div>
+                        <button class="maestro-btn tool-btn note-grid-btn text-sm italic font-serif" title="sfz" onclick="ToolbarView.selectTool('dynamic', 'sfz', this)">sfz</button>
+                    </div>
                 </div>
             </div>
 
