@@ -242,29 +242,47 @@ export const Input = {
         if (State.activeTool === 'dynamic' || State.activeTool === 'hairpin') {
             if (!zoning) return null;
             
-            // Constraint: Must be OUTSIDE the staff (Above Top or Below Bottom)
-            // We apply a small buffer so symbols aren't placed directly on the lines.
-            // Inside the staff is Forbidden: y > topY + buffer && y < bottomY - buffer
-            const buffer = 5 / PDF.scale;
-            if (y > zoning.topY + buffer && y < zoning.bottomY - buffer) return null;
+            // Text directions must be strictly BELOW the staff
+            if (['rit.', 'acc.', 'poco', 'a_tempo'].includes(State.noteDuration)) {
+                if (y < zoning.bottomY) return null;
+            } else {
+                // Regular dynamics can't be inside staff
+                const buffer = 5 / PDF.scale;
+                if (y > zoning.topY + buffer && y < zoning.bottomY - buffer) return null;
+            }
 
             const height = Math.abs(zoning.bottomY - zoning.topY);
             
-            // Free vertical placement allowed above/below staff
             return {
                 x: x,
                 y: y,
                 systemId: zoning.id,
                 type: State.activeTool,
-                subtype: State.noteDuration, // e.g., 'mf', 'crescendo'
+                subtype: State.noteDuration, 
                 meta: { height }
             };
         }
 
-        // --- SYMBOLS (Segno, Coda) ---
+        // --- SYMBOLS (Segno, Coda, Fermata, Caesura) ---
         if (State.activeTool === 'symbol') {
             if (!zoning) return null;
+
+            const height = Math.abs(zoning.bottomY - zoning.topY);
             
+            // Fermata/Caesura: Floating X, Fixed Y (Above Staff)
+            if (State.noteDuration === 'fermata' || State.noteDuration === 'caesura') {
+                const fixedY = zoning.topY - (height * 0.25);
+                return {
+                    x: x,
+                    y: fixedY,
+                    systemId: zoning.id,
+                    type: 'symbol',
+                    subtype: State.noteDuration,
+                    meta: { height }
+                };
+            }
+            
+            // Segno/Coda: Snap to Barline
             const barlines = part.notes.filter(n => n.type === 'barline' && n.systemId === zoning.id);
             let closestDist = Infinity; 
             let closestBar = null;
@@ -274,9 +292,7 @@ export const Input = {
                 if (dist < closestDist) { closestDist = dist; closestBar = bar; } 
             });
             
-            // STRICT SNAP: Only place if near a barline
             if (closestBar && closestDist < 20) {
-                const height = Math.abs(zoning.bottomY - zoning.topY);
                 const fixedY = zoning.topY - (height * 0.25);
                 return { 
                     x: closestBar.x, 
@@ -482,8 +498,6 @@ export const Input = {
                         this.saveState();
                         const { meta, ...cleanItem } = item; 
                         part.notes.push(cleanItem);
-                        // FIX: Use renderAll() instead of drawNote(). drawNote defaults to noteheads for unknown types.
-                        // renderAll() routes correctly to drawDynamic, drawHairpin, etc.
                         NoteRenderer.renderAll();
                     }
                 }
@@ -558,7 +572,7 @@ export const Input = {
             let width = x - this.hairpinOriginX;
             
             // Only allow forward dragging (width > 0)
-            if (width > 10) { // Min width 10px unscaled
+            if (width > 10) { 
                 this.saveState();
                 const part = State.parts.find(p => p.id === State.activePartId);
                 part.notes.push({
@@ -566,7 +580,7 @@ export const Input = {
                     y: this.hairpinOriginY,
                     systemId: this.hairpinSystemId,
                     type: 'hairpin',
-                    subtype: State.noteDuration, // 'crescendo' or 'diminuendo'
+                    subtype: State.noteDuration, 
                     width: width
                 });
                 NoteRenderer.renderAll();
@@ -622,8 +636,6 @@ export const Input = {
                          n.y = newY; 
                      }
                  } else {
-                     // For dynamics, symbols, barlines, allow freer vertical movement 
-                     // but update system ID if moving across zones
                      const zone = ZoningEngine.checkZone(newY);
                      if (zone && zone.id !== n.systemId) {
                          n.systemId = zone.id;
@@ -631,9 +643,6 @@ export const Input = {
                          if (n.type === 'barline') n.y = zone.topY;
                          if (n.type === 'time' || n.type === 'key') n.y = zone.topY + (height / 2);
                      }
-                     
-                     // Hairpins/Dynamics: Clamp to be below staff? 
-                     // For drag-move, we allow user freedom, assuming they know what they are doing.
                      n.y = newY;
                  }
              });
@@ -652,17 +661,13 @@ export const Input = {
              const width = Math.max(0, currX - startX);
              const endX = startX + width;
              
-             // Calculate dynamic height based on system calibration
-             // Target: Total opening is 3/8 of system height (approx 1.5 spaces)
-             let halfOpening = 10 * PDF.scale; // Fallback default
+             let halfOpening = 10 * PDF.scale; 
              
              const part = State.parts.find(p => p.id === State.activePartId);
              if (part && this.hairpinSystemId !== null) {
                  const system = part.calibration[this.hairpinSystemId];
                  if (system) {
                      const sysHeight = Math.abs(system.bottomY - system.topY);
-                     // Total opening = 3/8 * sysHeight
-                     // halfOpening (center to edge) = (3/8 * sysHeight) / 2 = 3/16 * sysHeight
                      halfOpening = (sysHeight * (3/16)) * PDF.scale; 
                  }
              }
@@ -671,12 +676,9 @@ export const Input = {
              const topY = midY - halfOpening;
              const botY = midY + halfOpening;
 
-             // Draw Hairpin SVG path
              if (State.noteDuration === 'crescendo') {
-                 // <  (Starts closed, ends open)
                  this.hairpinTempPath.setAttribute("d", `M ${endX} ${topY} L ${startX} ${midY} L ${endX} ${botY}`);
              } else {
-                 // > (Starts open, ends closed)
                  this.hairpinTempPath.setAttribute("d", `M ${startX} ${topY} L ${endX} ${midY} L ${startX} ${botY}`);
              }
              return;
@@ -726,17 +728,25 @@ export const Input = {
                     return;
                 }
 
-                // --- GHOST DYNAMICS ---
+                // --- GHOST DYNAMICS & TEXT DIRECTIONS ---
                 if (item.type === 'dynamic') {
-                    const boxHeight = item.meta.height * 0.6 * PDF.scale; // Scaled to staff
+                    const boxHeight = item.meta.height * 0.6 * PDF.scale; 
                     this.ghostNote.classList.add('visible', 'ghost-dynamic');
                     this.ghostNote.style.height = boxHeight + 'px';
                     this.ghostNote.style.minWidth = boxHeight + 'px';
-                    this.ghostNote.innerText = item.subtype; // p, mf, etc.
+                    this.ghostNote.innerText = item.subtype; 
                     
-                    // Simple font styling for ghost
                     this.ghostNote.style.fontFamily = "'Noto Music', serif";
-                    this.ghostNote.style.fontSize = (boxHeight * 0.8) + 'px';
+                    // Smaller font for longer text instructions
+                    if (['rit.', 'acc.', 'poco', 'a_tempo'].includes(item.subtype)) {
+                         this.ghostNote.style.fontSize = (boxHeight * 0.5) + 'px';
+                         this.ghostNote.style.fontStyle = 'italic';
+                         this.ghostNote.style.fontFamily = 'serif';
+                         this.ghostNote.style.padding = '0 5px';
+                    } else {
+                         this.ghostNote.style.fontSize = (boxHeight * 0.8) + 'px';
+                    }
+
                     this.ghostNote.style.display = 'flex';
                     this.ghostNote.style.alignItems = 'center';
                     this.ghostNote.style.justifyContent = 'center';
@@ -751,9 +761,7 @@ export const Input = {
                     return;
                 }
 
-                // --- GHOST HAIRPIN ---
                 if (item.type === 'hairpin') {
-                    // User requested no ghost note for hairpins, just cursor.
                     this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                     return;
@@ -795,7 +803,14 @@ export const Input = {
 
                 if (item.type === 'symbol') {
                     this.ghostNote.classList.add('visible', 'ghost-symbol');
-                    this.ghostNote.innerText = (item.subtype === 'segno') ? 'щ' : 'ъ';
+                    let symbolChar = '';
+                    switch(item.subtype) {
+                        case 'segno': symbolChar = '𝄋'; break;
+                        case 'coda': symbolChar = '𝄌'; break;
+                        case 'fermata': symbolChar = '𝄐'; break;
+                        case 'caesura': symbolChar = '//'; break;
+                    }
+                    this.ghostNote.innerText = symbolChar;
                     this.ghostNote.style.fontSize = (item.meta.height * 0.5 * PDF.scale) + 'px';
                     this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
                     this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
