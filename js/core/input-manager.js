@@ -242,14 +242,15 @@ export const Input = {
         if (State.activeTool === 'dynamic' || State.activeTool === 'hairpin') {
             if (!zoning) return null;
             
-            // Constraint: Must be below the staff (bottomY)
-            // Allow clicking exactly on bottom line, but practically needs to be lower.
-            // Using a small buffer (5px scaled) so user doesn't have to be pixel perfect
-            if (y < zoning.bottomY - (5 / PDF.scale)) return null;
+            // Constraint: Must be OUTSIDE the staff (Above Top or Below Bottom)
+            // We apply a small buffer so symbols aren't placed directly on the lines.
+            // Inside the staff is Forbidden: y > topY + buffer && y < bottomY - buffer
+            const buffer = 5 / PDF.scale;
+            if (y > zoning.topY + buffer && y < zoning.bottomY - buffer) return null;
 
             const height = Math.abs(zoning.bottomY - zoning.topY);
             
-            // Free vertical placement allowed below staff
+            // Free vertical placement allowed above/below staff
             return {
                 x: x,
                 y: y,
