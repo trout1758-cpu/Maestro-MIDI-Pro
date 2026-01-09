@@ -753,15 +753,8 @@ export const Input = {
 
                 // --- GHOST HAIRPIN ---
                 if (item.type === 'hairpin') {
-                    // Small blue dot to indicate start point
-                    this.ghostNote.classList.add('visible');
-                    this.ghostNote.style.width = '8px';
-                    this.ghostNote.style.height = '8px';
-                    this.ghostNote.style.backgroundColor = '#2563eb';
-                    this.ghostNote.style.borderRadius = '50%';
-                    this.ghostNote.style.left = (item.x * PDF.scale) + 'px';
-                    this.ghostNote.style.top = (item.y * PDF.scale) + 'px';
-                    this.ghostNote.style.transform = 'translate(-50%, -50%)';
+                    // User requested no ghost note for hairpins, just cursor.
+                    this.ghostNote.classList.remove('visible');
                     ToolbarView.updatePitch("-");
                     return;
                 }
