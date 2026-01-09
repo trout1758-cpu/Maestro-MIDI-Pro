@@ -1,8 +1,10 @@
 import { State } from '../state.js';
 import { NoteRenderer } from '../core/note-renderer.js';
 import { Input } from '../core/input-manager.js';
+import { ModalView } from './modal-view.js';
 
 export const ToolbarView = {
+    // ... existing ...
     update() {
         const label = document.getElementById('current-part-label');
         const deck = document.getElementById('control-deck');
@@ -58,7 +60,6 @@ export const ToolbarView = {
         State.selectedNotes = []; 
         NoteRenderer.renderAll();
         
-        // Reset Header Visuals
         document.querySelectorAll('.header-tool-btn').forEach(b => {
             b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
             if (b.id === 'delete-mode-btn') {
@@ -70,8 +71,6 @@ export const ToolbarView = {
         });
 
         document.getElementById('control-deck').classList.remove('selection-mode-active');
-        
-        // Restore active tool button highlight
         this._restoreActiveToolButton();
     },
 
@@ -80,18 +79,13 @@ export const ToolbarView = {
             this.setAddMode();
         } else {
             State.mode = 'select';
-            
-            // Highlight Select Button
             document.querySelectorAll('.header-tool-btn').forEach(b => {
                 b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
                 b.classList.add('text-gray-600');
             });
             btn.classList.remove('text-gray-600');
             btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-            
             document.getElementById('control-deck').classList.add('selection-mode-active');
-            
-            // Deselect all tool buttons
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         }
     },
@@ -112,16 +106,12 @@ export const ToolbarView = {
             this.setAddMode();
         } else {
             State.mode = 'delete';
-            
             document.querySelectorAll('.header-tool-btn').forEach(b => {
                 b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
                 b.classList.add('text-gray-600');
             });
-            
             btn.classList.remove('text-red-600');
             btn.classList.add('active', 'bg-red-600', 'text-white', 'hover:bg-red-700');
-            
-            // Clear selections
             State.selectedNotes = [];
             NoteRenderer.renderAll();
         }
@@ -130,13 +120,20 @@ export const ToolbarView = {
     selectTool(tool, subtype, btn) {
         // --- SMART EDIT LOGIC ---
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
+             // If clicking Tempo while items selected, check if any are tempo marks
+             if (tool === 'tempo') {
+                 const tempoMark = State.selectedNotes.find(n => n.type === 'tempo');
+                 if (tempoMark) {
+                     ModalView.openTempoModal({ unit: tempoMark.duration, bpm: tempoMark.bpm });
+                     return;
+                 }
+             }
+
              Input.saveState(); 
              let modificationsMade = false;
              
              State.selectedNotes.forEach(note => {
                  let isCompatible = false;
-                 
-                 // Type Compatibility Logic
                  if ((note.type === 'note' || note.type === 'rest') && (tool === 'note' || tool === 'rest')) {
                      isCompatible = true;
                  } else if (note.type === tool) {
@@ -151,7 +148,6 @@ export const ToolbarView = {
                          note.type = tool; 
                          note.duration = subtype;
                      }
-                     
                      if (tool !== 'note' && tool !== 'rest') {
                          delete note.isDotted;
                          delete note.accidental;
@@ -162,7 +158,6 @@ export const ToolbarView = {
              
              if (modificationsMade) {
                  NoteRenderer.renderAll();
-                 // VISUAL FLASH
                  if (btn) {
                      btn.classList.add('flash-active');
                      setTimeout(() => btn.classList.remove('flash-active'), 150);
@@ -184,7 +179,6 @@ export const ToolbarView = {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if(btn) btn.classList.add('active');
 
-        // Toggle Accidentals State
         const accidentals = document.querySelectorAll('.accidental-btn');
         if (tool === 'note') {
             accidentals.forEach(b => {
@@ -202,7 +196,6 @@ export const ToolbarView = {
     },
 
     toggleDot(btn) {
-        // Smart Edit: Dot
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
             let changed = false;
@@ -232,8 +225,6 @@ export const ToolbarView = {
 
     toggleAccidental(type, btn) {
         if (btn.classList.contains('placeholder')) return;
-        
-        // Smart Edit: Accidental
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
             Input.saveState();
             let changed = false;
@@ -278,17 +269,5 @@ export const ToolbarView = {
     },
 
     _restoreActiveToolButton() {
-        // Find button that matches current State.activeTool and State.noteDuration
-        const buttons = document.querySelectorAll('.tool-btn');
-        buttons.forEach(btn => {
-            // This relies on the onclick handler structure being predictable or custom attributes
-            // For now, we just clear all. Re-highlighting logic would require parsing onclick strings
-            // or adding data-attributes to buttons.
-            // As a fallback, we just clear to avoid visual confusion.
-            // If strict re-highlighting is needed, we should add data-tool and data-subtype attrs to HTML.
-        });
-        
-        // Attempt a simple re-highlight based on text content if possible, or leave blank until next click.
-        // Given the constraints, leaving it blank is safer than guessing wrong.
     }
 };
