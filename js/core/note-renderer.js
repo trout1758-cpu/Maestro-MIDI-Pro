@@ -7,6 +7,7 @@ export const NoteRenderer = {
         PDF.overlay.innerHTML = ''; 
         Input.initGhostNote();
 
+        // Create SVG layer for ties & hairpins
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.style.position = 'absolute';
         svg.style.top = '0';
@@ -27,19 +28,22 @@ export const NoteRenderer = {
              return a.x - b.x;
         });
 
+        // 1. Render all notes, symbols, dynamics
         part.notes.forEach(note => {
             const isSelected = State.selectedNotes.includes(note);
+            // Handle new types: dynamic, hairpin
             if (note.type === 'hairpin') {
                 this.drawHairpin(svg, note, isSelected);
             } else if (note.type === 'dynamic') {
                 this.drawDynamic(note, isSelected);
             } else if (note.type === 'tempo') {
-                this.drawTempo(note, isSelected);
+                this.drawTempo(note, isSelected, part);
             } else {
                 this.drawNote(note.x, note.y, note.size, note.pitchIndex, note.systemId, note.type, note.subtype, note.isDotted, note.accidental, isSelected);
             }
         });
 
+        // 2. Render ties
         sortedNotes.forEach((note, index) => {
             if (note.type === 'note' && note.hasTie) {
                 let nextNote = null;
@@ -56,13 +60,15 @@ export const NoteRenderer = {
             }
         });
     },
-    // ... drawHairpin, drawDynamic, drawTie, drawNote (unchanged) ...
+
     drawHairpin(svg, note, isSelected) {
         const startX = note.x * PDF.scale;
         const startY = note.y * PDF.scale;
         const width = note.width * PDF.scale;
         const endX = startX + width;
+        
         let halfOpening = 10 * PDF.scale; 
+        
         const part = State.parts.find(p => p.id === State.activePartId);
         if (part && note.systemId !== null) {
             const system = part.calibration[note.systemId];
@@ -71,43 +77,46 @@ export const NoteRenderer = {
                 halfOpening = (sysHeight * (3/16)) * PDF.scale; 
             }
         }
+
         const midY = startY;
         const topY = midY - halfOpening;
         const botY = midY + halfOpening;
+
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        
         if (note.subtype === 'crescendo') {
              path.setAttribute("d", `M ${endX} ${topY} L ${startX} ${midY} L ${endX} ${botY}`);
         } else {
              path.setAttribute("d", `M ${startX} ${topY} L ${endX} ${midY} L ${startX} ${botY}`);
         }
+
         path.setAttribute("stroke", isSelected ? "#22c55e" : "#2563eb");
         path.setAttribute("stroke-width", "2");
         path.setAttribute("fill", "none");
+        
         svg.appendChild(path);
     },
+
     drawDynamic(note, isSelected) {
         const part = State.parts.find(p => p.id === State.activePartId);
         const system = part.calibration[note.systemId];
         if (!system) return;
+
         const systemHeight = Math.abs(system.bottomY - system.topY);
+        // Box scaling: roughly 60% of staff height
         const boxHeight = systemHeight * 0.6 * PDF.scale;
+        
         const el = document.createElement('div');
         el.className = 'placed-dynamic';
         if (isSelected) el.classList.add('selected');
-        el.innerText = note.subtype; 
+        
+        el.innerText = note.subtype; // p, mf, etc.
         el.style.height = boxHeight + 'px';
-        el.style.minWidth = boxHeight + 'px'; 
+        el.style.minWidth = boxHeight + 'px'; // Square-ish
         el.style.left = (note.x * PDF.scale) + 'px';
         el.style.top = (note.y * PDF.scale) + 'px';
+        el.style.fontSize = (boxHeight * 0.8) + 'px'; // Scale font
         
-        if (['rit.', 'acc.', 'poco', 'a_tempo'].includes(note.subtype)) {
-            el.style.fontSize = (boxHeight * 0.5) + 'px';
-            el.style.fontStyle = 'italic';
-            el.style.fontFamily = 'serif';
-            el.style.padding = '0 4px';
-        } else {
-            el.style.fontSize = (boxHeight * 0.8) + 'px';
-        }
         el.style.position = 'absolute';
         el.style.display = 'flex';
         el.style.alignItems = 'center';
@@ -120,17 +129,22 @@ export const NoteRenderer = {
         el.style.transform = 'translate(-50%, -50%)';
         el.style.zIndex = '50';
         el.style.cursor = 'pointer';
+
         if (isSelected) {
             el.style.borderColor = '#22c55e';
             el.style.color = '#22c55e';
         }
+
         PDF.overlay.appendChild(el);
     },
+
     drawTie(svg, startNote, endNote, part) {
         const startX = startNote.x * PDF.scale;
         const startY = startNote.y * PDF.scale;
+        
         let endX, endY;
         let isDangling = false;
+
         if (endNote && endNote.systemId === startNote.systemId) {
             endX = endNote.x * PDF.scale;
             endY = endNote.y * PDF.scale;
@@ -139,30 +153,37 @@ export const NoteRenderer = {
             endX = startX + (40 * PDF.scale); 
             endY = startY;
         }
+
         const isStemDown = startNote.pitchIndex <= 4; 
         const curveDir = isStemDown ? -1 : 1; 
+
         const noteRadius = (startNote.size || 10) * PDF.scale;
         const gap = noteRadius * 0.8;
+        
         const x1 = startX + gap;
         const y1 = startY;
         const x2 = endX - gap;
         const y2 = endY;
+
         const cx = (x1 + x2) / 2;
         const cy = ((y1 + y2) / 2) + (15 * curveDir * PDF.scale); 
+
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute("d", `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
         path.setAttribute("stroke", "#2563eb");
         path.setAttribute("stroke-width", "2");
         path.setAttribute("fill", "none");
+        
         if(isDangling) {
              path.setAttribute("stroke-dasharray", "4");
              path.setAttribute("opacity", "0.5");
         }
+
         svg.appendChild(path);
     },
 
     // --- NEW: Draw Tempo ---
-    drawTempo(note, isSelected) {
+    drawTempo(note, isSelected, part) {
         const el = document.createElement('div');
         
         // Map internal unit to symbol
@@ -177,16 +198,25 @@ export const NoteRenderer = {
 
         const text = `${symbol} = ${note.bpm}`;
 
-        // Box size calc
-        const w = 120 * PDF.scale;
-        const h = 40 * PDF.scale;
+        // Get system height for scaling
+        let sysHeight = 50; // default backup
+        if (part && note.systemId !== null) {
+            const system = part.calibration[note.systemId];
+            if (system) {
+                sysHeight = Math.abs(system.bottomY - system.topY);
+            }
+        }
+
+        // New Logic: 2/5 of system height
+        const h = (sysHeight * 0.4) * PDF.scale;
+        const w = h * 3; // Keep aspect ratio manageable
 
         el.innerText = text;
         el.style.width = w + 'px';
         el.style.height = h + 'px';
         el.style.left = (note.x * PDF.scale) + 'px';
         el.style.top = (note.y * PDF.scale) + 'px';
-        el.style.fontSize = (h * 0.45) + 'px';
+        el.style.fontSize = (h * 0.5) + 'px';
         
         el.style.position = 'absolute';
         el.style.display = 'flex';
