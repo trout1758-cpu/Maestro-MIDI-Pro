@@ -209,8 +209,8 @@
                 <div>
                     <button class="maestro-btn note-grid-btn text-4xl pb-4" title="Dot" onclick="ToolbarView.toggleDot(this)">.</button>
                 </div>
-                <!-- Tie & Tuplet Stack -->
-                <div class="flex flex-col gap-2 relative">
+                 <!-- Tie & Tuplet Stack -->
+                 <div class="flex flex-col gap-2 relative">
                     <button class="maestro-btn placeholder double-width-btn flex flex-col items-center justify-center p-0" title="Tie" onclick="ToolbarView.toggleTie(this)">
                         <span class="text-3xl leading-3 mt-3 transform scale-x-[4] origin-center">⁀</span>
                         <span class="text-xs font-serif italic mb-1">tie</span>
@@ -235,12 +235,13 @@
                 </div>
             </div>
 
-            <!-- DYNAMICS (UPDATED) -->
+            <!-- DYNAMICS -->
             <div id="tools-dynamics" class="flex gap-6 items-center justify-center w-full hidden">
                 
-                <!-- MOVED FROM RHYTHM: Tempo & Duration Modifiers -->
+                <!-- TEMPO & MODIFIERS -->
                 <div class="flex items-center gap-6">
-                     <button class="maestro-btn placeholder double-width-btn" title="Tempo Marking">Tempo</button>
+                    <!-- TEMPO BUTTON ACTIVATED -->
+                     <button class="maestro-btn tool-btn double-width-btn" title="Tempo Marking" onclick="ToolbarView.selectTool('tempo', null, this)">Tempo</button>
                      <div class="flex flex-col gap-2">
                          <div class="flex gap-2">
                              <button class="maestro-btn note-grid-btn tool-btn" title="Fermata" onclick="ToolbarView.selectTool('symbol', 'fermata', this)">𝄐</button>
@@ -255,10 +256,9 @@
                      </div>
                 </div>
 
-                <!-- NEW SEPARATOR -->
                 <div class="w-px h-20 bg-gray-300"></div>
 
-                <!-- ORIGINAL DYNAMICS -->
+                <!-- DYNAMICS -->
                 <div class="flex items-center gap-6">
                     <div class="flex flex-col gap-2">
                         <div class="flex gap-2 items-center">
@@ -280,7 +280,6 @@
                              </button>
                         </div>
                     </div>
-                    <!-- sfz -->
                     <div>
                         <button class="maestro-btn tool-btn note-grid-btn text-sm italic font-serif" title="sfz" onclick="ToolbarView.selectTool('dynamic', 'sfz', this)">sfz</button>
                     </div>
@@ -339,7 +338,7 @@
         <button onclick="PDF.adjustZoom(0.1)" class="p-2 hover:text-blue-600 text-gray-600"><i data-lucide="plus-circle" size="20"></i></button>
     </div>
 
-    <!-- MODALS -->
+    <!-- PART MODAL -->
     <div id="part-modal" class="modal-overlay">
         <div class="bg-white rounded-xl shadow-2xl w-96 overflow-hidden">
             <div class="bg-slate-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
@@ -392,6 +391,42 @@
             <div class="flex justify-center gap-3">
                 <button onclick="UIManager.closeModals()" class="px-4 py-2 text-sm font-semibold border rounded hover:bg-gray-50">Cancel</button>
                 <button onclick="PartController.delete()" class="px-4 py-2 text-sm font-bold text-white bg-red-600 rounded hover:bg-red-700">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: TEMPO MODAL -->
+    <div id="tempo-modal" class="modal-overlay">
+        <div class="bg-white rounded-lg shadow-xl w-80 overflow-hidden">
+            <div class="bg-slate-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                <h2 class="text-md font-bold text-slate-800">Set Tempo</h2>
+                <button onclick="UIManager.closeModals()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" size="18"></i></button>
+            </div>
+            <div class="p-6">
+                <div class="flex items-center justify-center gap-3">
+                    <!-- Dropdown for Note Value -->
+                    <div class="relative group">
+                         <button id="tempo-unit-btn" class="w-16 h-12 border border-gray-300 rounded bg-white flex items-center justify-center text-3xl hover:bg-gray-50 font-music" onclick="ModalView.toggleTempoDropdown()">
+                            𝅘𝅥
+                         </button>
+                         <div id="tempo-dropdown" class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg w-16 z-50 max-h-48 overflow-y-auto">
+                            <div class="text-3xl text-center py-2 hover:bg-blue-50 cursor-pointer" onclick="ModalView.selectTempoUnit(2, '𝅗𝅥')">𝅗𝅥</div>
+                            <div class="text-3xl text-center py-2 hover:bg-blue-50 cursor-pointer" onclick="ModalView.selectTempoUnit(4, '𝅘𝅥')">𝅘𝅥</div>
+                            <div class="text-3xl text-center py-2 hover:bg-blue-50 cursor-pointer" onclick="ModalView.selectTempoUnit(8, '𝅘𝅥𝅮')">𝅘𝅥𝅮</div>
+                            <!-- Added Dotted Options -->
+                            <div class="text-3xl text-center py-2 hover:bg-blue-50 cursor-pointer" onclick="ModalView.selectTempoUnit(4.5, '𝅘𝅥.')">𝅘𝅥.</div>
+                            <div class="text-3xl text-center py-2 hover:bg-blue-50 cursor-pointer" onclick="ModalView.selectTempoUnit(2.5, '𝅗𝅥.')">𝅗𝅥.</div>
+                         </div>
+                    </div>
+                    
+                    <span class="text-2xl font-bold text-gray-400">=</span>
+                    
+                    <!-- Numeric Input -->
+                    <input type="text" id="tempo-value" class="w-24 h-12 border border-gray-300 rounded text-center text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none" placeholder="60" onfocus="this.value=''" oninput="this.value = this.value.replace(/[^0-9-]/g, '')">
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 border-t border-gray-100 flex justify-end">
+                <button onclick="ModalView.submitTempo()" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow-sm">OK</button>
             </div>
         </div>
     </div>
