@@ -404,8 +404,9 @@
 
     <!-- NEW: TEMPO MODAL (Updated) -->
     <div id="tempo-modal" class="modal-overlay">
-        <div class="bg-white rounded-lg shadow-xl w-80 overflow-hidden">
-            <div class="bg-slate-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+        <!-- Removed overflow-hidden from here -->
+        <div class="bg-white rounded-lg shadow-xl w-80">
+            <div class="bg-slate-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center rounded-t-lg">
                 <h2 class="text-md font-bold text-slate-800">Set Tempo</h2>
                 <!-- Cancel logic tied to close button -->
                 <button onclick="ModalView.cancelTempo()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" size="18"></i></button>
@@ -434,7 +435,7 @@
                     <input type="text" id="tempo-value" class="w-24 h-12 border border-gray-300 rounded text-center text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none" placeholder="60" onfocus="this.value=''" oninput="this.value = this.value.replace(/[^0-9-]/g, '')">
                 </div>
             </div>
-            <div class="bg-gray-50 px-4 py-3 border-t border-gray-100 flex justify-end">
+            <div class="bg-gray-50 px-4 py-3 border-t border-gray-100 flex justify-end rounded-b-lg">
                 <button onclick="ModalView.submitTempo()" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow-sm">OK</button>
             </div>
         </div>
