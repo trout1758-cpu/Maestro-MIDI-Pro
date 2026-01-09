@@ -651,10 +651,24 @@ export const Input = {
              const width = Math.max(0, currX - startX);
              const endX = startX + width;
              
-             const height = 10 * PDF.scale; // Visual opening height of hairpin
+             // Calculate dynamic height based on system calibration
+             // Target: Total opening is 3/8 of system height (approx 1.5 spaces)
+             let halfOpening = 10 * PDF.scale; // Fallback default
+             
+             const part = State.parts.find(p => p.id === State.activePartId);
+             if (part && this.hairpinSystemId !== null) {
+                 const system = part.calibration[this.hairpinSystemId];
+                 if (system) {
+                     const sysHeight = Math.abs(system.bottomY - system.topY);
+                     // Total opening = 3/8 * sysHeight
+                     // halfOpening (center to edge) = (3/8 * sysHeight) / 2 = 3/16 * sysHeight
+                     halfOpening = (sysHeight * (3/16)) * PDF.scale; 
+                 }
+             }
+             
              const midY = startY;
-             const topY = midY - height;
-             const botY = midY + height;
+             const topY = midY - halfOpening;
+             const botY = midY + halfOpening;
 
              // Draw Hairpin SVG path
              if (State.noteDuration === 'crescendo') {
