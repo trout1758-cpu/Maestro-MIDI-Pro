@@ -64,11 +64,25 @@ export const NoteRenderer = {
         const startY = note.y * PDF.scale;
         const width = note.width * PDF.scale;
         const endX = startX + width;
-        const height = 10 * PDF.scale; // Visual height of opening
+        
+        // Calculate dynamic height based on system calibration
+        // Target: Total opening is 3/8 of system height (approx 1.5 spaces)
+        let halfOpening = 10 * PDF.scale; // Fallback default
+        
+        const part = State.parts.find(p => p.id === State.activePartId);
+        if (part && note.systemId !== null) {
+            const system = part.calibration[note.systemId];
+            if (system) {
+                const sysHeight = Math.abs(system.bottomY - system.topY);
+                // Total opening = 3/8 * sysHeight
+                // halfOpening (center to edge) = (3/8 * sysHeight) / 2 = 3/16 * sysHeight
+                halfOpening = (sysHeight * (3/16)) * PDF.scale; 
+            }
+        }
 
         const midY = startY;
-        const topY = midY - height;
-        const botY = midY + height;
+        const topY = midY - halfOpening;
+        const botY = midY + halfOpening;
 
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         
@@ -83,11 +97,6 @@ export const NoteRenderer = {
         path.setAttribute("stroke", isSelected ? "#22c55e" : "#2563eb");
         path.setAttribute("stroke-width", "2");
         path.setAttribute("fill", "none");
-        
-        // Add click listener to SVG path via a transparent hit box if needed, 
-        // but for now relying on proximity in input-manager to select.
-        // Actually, SVG pointer events are none in main init, so we might need a hit box div?
-        // Input Manager uses visual proximity (findTargetNote), so we don't strictly need clicks ON the line.
         
         svg.appendChild(path);
     },
