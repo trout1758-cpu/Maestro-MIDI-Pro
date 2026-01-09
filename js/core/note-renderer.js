@@ -65,17 +65,13 @@ export const NoteRenderer = {
         const width = note.width * PDF.scale;
         const endX = startX + width;
         
-        // Calculate dynamic height based on system calibration
-        // Target: Total opening is 3/8 of system height (approx 1.5 spaces)
-        let halfOpening = 10 * PDF.scale; // Fallback default
+        let halfOpening = 10 * PDF.scale; 
         
         const part = State.parts.find(p => p.id === State.activePartId);
         if (part && note.systemId !== null) {
             const system = part.calibration[note.systemId];
             if (system) {
                 const sysHeight = Math.abs(system.bottomY - system.topY);
-                // Total opening = 3/8 * sysHeight
-                // halfOpening (center to edge) = (3/8 * sysHeight) / 2 = 3/16 * sysHeight
                 halfOpening = (sysHeight * (3/16)) * PDF.scale; 
             }
         }
@@ -87,10 +83,8 @@ export const NoteRenderer = {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         
         if (note.subtype === 'crescendo') {
-             // <  (Starts closed, ends open)
              path.setAttribute("d", `M ${endX} ${topY} L ${startX} ${midY} L ${endX} ${botY}`);
         } else {
-             // > (Starts open, ends closed)
              path.setAttribute("d", `M ${startX} ${topY} L ${endX} ${midY} L ${startX} ${botY}`);
         }
 
@@ -114,14 +108,22 @@ export const NoteRenderer = {
         el.className = 'placed-dynamic';
         if (isSelected) el.classList.add('selected');
         
-        el.innerText = note.subtype; // p, mf, etc.
+        el.innerText = note.subtype; // p, mf, rit., a tempo, etc.
         el.style.height = boxHeight + 'px';
-        el.style.minWidth = boxHeight + 'px'; // Square-ish
+        el.style.minWidth = boxHeight + 'px'; 
         el.style.left = (note.x * PDF.scale) + 'px';
         el.style.top = (note.y * PDF.scale) + 'px';
-        el.style.fontSize = (boxHeight * 0.8) + 'px'; // Scale font
         
-        // Styling matches other "placed-symbol" types
+        // Font sizing logic
+        if (['rit.', 'acc.', 'poco', 'a_tempo'].includes(note.subtype)) {
+            el.style.fontSize = (boxHeight * 0.5) + 'px';
+            el.style.fontStyle = 'italic';
+            el.style.fontFamily = 'serif';
+            el.style.padding = '0 4px';
+        } else {
+            el.style.fontSize = (boxHeight * 0.8) + 'px';
+        }
+        
         el.style.position = 'absolute';
         el.style.display = 'flex';
         el.style.alignItems = 'center';
@@ -242,7 +244,17 @@ export const NoteRenderer = {
             const boxSize = (height * 0.6) * PDF.scale;
             
             el.className += ' placed-symbol';
-            el.innerText = subtype === 'segno' ? '𝄋' : '𝄌';
+            
+            let char = '';
+            switch(subtype) {
+                case 'segno': char = '𝄋'; break;
+                case 'coda': char = '𝄌'; break;
+                case 'fermata': char = '𝄐'; break;
+                case 'caesura': char = '//'; break;
+                default: char = '?';
+            }
+            
+            el.innerText = char;
             el.style.width = boxSize + 'px';
             el.style.height = boxSize + 'px';
             el.style.left = (unscaledX * PDF.scale) + 'px';
