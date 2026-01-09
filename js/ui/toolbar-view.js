@@ -120,7 +120,7 @@ export const ToolbarView = {
     selectTool(tool, subtype, btn) {
         // --- SMART EDIT LOGIC ---
         if (State.mode === 'select' && State.selectedNotes.length > 0) {
-             // If clicking Tempo while items selected, check if any are tempo marks
+             // If clicking Tempo BUTTON while items selected, check if any are tempo marks
              if (tool === 'tempo') {
                  const tempoMark = State.selectedNotes.find(n => n.type === 'tempo');
                  if (tempoMark) {
