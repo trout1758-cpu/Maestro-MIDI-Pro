@@ -68,7 +68,7 @@ export const ModalView = {
         UIManager.closeModals();
         const modal = document.getElementById('tempo-modal');
         const input = document.getElementById('tempo-value');
-        const btn = document.getElementById('tempo-unit-btn');
+        const btnIcon = document.getElementById('tempo-btn-icon');
         
         // Reset or populate
         if (currentVal && currentVal.unit && currentVal.bpm) {
@@ -84,12 +84,12 @@ export const ModalView = {
                 case 2.5: symbol = '𝅗𝅥.'; break;
                 default: symbol = '𝅘𝅥';
             }
-            btn.innerText = symbol;
+            btnIcon.innerText = symbol;
         } else {
             // Defaults
             input.value = '';
             State.pendingTempoUnit = 4; // Quarter note default
-            btn.innerText = '𝅘𝅥';
+            btnIcon.innerText = '𝅘𝅥';
         }
         
         modal.classList.add('show');
@@ -104,15 +104,28 @@ export const ModalView = {
 
     selectTempoUnit(unit, symbol) {
         State.pendingTempoUnit = unit;
-        document.getElementById('tempo-unit-btn').innerText = symbol;
+        document.getElementById('tempo-btn-icon').innerText = symbol;
         document.getElementById('tempo-dropdown').classList.add('hidden');
+    },
+
+    cancelTempo() {
+        // If we were in the middle of placing a new tempo mark (pending), revert it
+        if (State.pendingTempoNote) {
+             const part = State.parts.find(p => p.id === State.activePartId);
+             if (part) {
+                 part.notes = part.notes.filter(n => n !== State.pendingTempoNote);
+                 NoteRenderer.renderAll();
+             }
+             State.pendingTempoNote = null;
+        }
+        UIManager.closeModals();
     },
 
     submitTempo() {
         const val = document.getElementById('tempo-value').value || '60';
         const unit = State.pendingTempoUnit || 4;
         
-        // If we are editing selected notes
+        // Scenario 1: Smart Edit (triggered via toolbar button on selected items)
         if (State.selectedNotes.length > 0 && State.mode === 'select') {
              State.selectedNotes.forEach(n => {
                  if (n.type === 'tempo') {
@@ -122,21 +135,16 @@ export const ModalView = {
              });
              NoteRenderer.renderAll();
         } 
-        // If we are creating a new one (triggered from Input Manager)
-        else if (State.pendingTempoPlacement) {
-             const { x, y, systemId } = State.pendingTempoPlacement;
+        // Scenario 2: New Placement (confirmed)
+        else if (State.pendingTempoNote) {
              const part = State.parts.find(p => p.id === State.activePartId);
              if (part) {
-                 part.notes.push({
-                     x, y, systemId,
-                     type: 'tempo',
-                     bpm: val,
-                     duration: unit,
-                     size: 40 // Default size for box calculation
-                 });
+                 // Update the pending note in-place
+                 State.pendingTempoNote.bpm = val;
+                 State.pendingTempoNote.duration = unit;
                  NoteRenderer.renderAll();
              }
-             State.pendingTempoPlacement = null;
+             State.pendingTempoNote = null;
         }
 
         UIManager.closeModals();
