@@ -1,273 +1,184 @@
 import { State } from '../state.js';
-import { NoteRenderer } from '../core/note-renderer.js';
-import { Input } from '../core/input-manager.js';
-import { ModalView } from './modal-view.js';
+import { CONFIG } from '../config.js';
+import { UIManager } from './ui-manager.js';
 
 export const ToolbarView = {
-    // ... existing ...
-    update() {
-        const label = document.getElementById('current-part-label');
-        const deck = document.getElementById('control-deck');
-        const toolContainer = document.getElementById('tool-container');
-
-        if (State.activePartId) {
-            const part = State.parts.find(p => p.id === State.activePartId);
-            if (label) label.innerText = part ? part.name : "Error";
-            deck.classList.remove('toolbar-disabled');
-            toolContainer.classList.remove('opacity-50');
-        } else {
-            if (label) label.innerText = "No Part Selected";
-            deck.classList.add('toolbar-disabled');
-            toolContainer.classList.add('opacity-50');
-            this.updatePitch("-");
-        }
+    init() {
+        // Initialize state visuals
+        this.updateActiveButton();
+        this.checkPitchVisibility();
     },
 
-    updatePitch(text) { 
-        document.getElementById('pitch-display').innerText = text; 
-    },
-
-    toggleCategory(category) {
-        const deck = document.getElementById('control-deck');
-        const tabs = deck.querySelectorAll('.tab-btn');
-        tabs.forEach(t => {
-            t.classList.remove('text-blue-600', 'border-blue-600', 'active');
-            t.classList.add('text-gray-500', 'border-transparent');
+    toggleCategory(id) {
+        // 1. Hide all tool containers
+        document.querySelectorAll('#tool-container > div[id^="tools-"]').forEach(el => {
+            el.classList.add('hidden');
         });
         
-        const cleanCat = category.replace(/[^a-z0-9]/gi, '').toLowerCase();
-        const clickedTab = Array.from(tabs).find(t => {
-            const cleanTab = t.innerText.replace(/[^a-z0-9]/gi, '').toLowerCase();
-            if (cleanCat === 'noterest' && cleanTab.includes('notesrests')) return true;
-            return cleanTab.includes(cleanCat);
-        });
+        // 2. Show the requested tool container
+        const activeGroup = document.getElementById(`tools-${id}`);
+        if (activeGroup) activeGroup.classList.remove('hidden');
 
-        if(clickedTab) {
-            clickedTab.classList.remove('text-gray-500', 'border-transparent');
-            clickedTab.classList.add('text-blue-600', 'border-blue-600', 'active');
-        }
+        // 3. Update Tab Styling
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        const activeTab = document.querySelector(`.tab-btn[onclick*="${id}"]`);
+        if (activeTab) activeTab.classList.add('active');
 
-        document.querySelectorAll('#tool-container > div').forEach(div => div.classList.add('hidden'));
-
-        const target = document.getElementById(`tools-${category}`);
-        if (target) {
-            target.classList.remove('hidden');
-        }
+        // NOTE: We no longer hide/show #pitch-display here. 
+        // Its visibility is now strictly determined by the Active Tool or Selection State via checkPitchVisibility().
     },
 
-    setAddMode() {
-        State.mode = 'add';
-        State.selectedNotes = []; 
-        NoteRenderer.renderAll();
+    selectTool(type, subtype, btn) {
+        // Clear previous states
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         
-        document.querySelectorAll('.header-tool-btn').forEach(b => {
-            b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
-            if (b.id === 'delete-mode-btn') {
-                 b.classList.remove('bg-red-600', 'text-white');
-                 b.classList.add('text-red-600', 'border-red-200');
-            } else {
-                 b.classList.add('text-gray-600', 'hover:bg-gray-100');
-            }
-        });
+        // Set State
+        State.activeTool = type;
+        State.noteDuration = subtype;
+        State.mode = 'add'; // Reset to add mode when picking a tool
+        
+        // Update UI
+        if (btn) btn.classList.add('active');
+        
+        // Reset toggle buttons
+        const selectBtn = document.getElementById('select-mode-btn');
+        const deleteBtn = document.getElementById('delete-mode-btn');
+        if (selectBtn) {
+            selectBtn.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-300');
+            selectBtn.classList.add('text-gray-600', 'border-gray-300');
+        }
+        if (deleteBtn) {
+            deleteBtn.classList.remove('bg-red-100', 'text-red-700', 'border-red-300');
+            deleteBtn.classList.add('text-red-600', 'border-red-200');
+        }
 
-        document.getElementById('control-deck').classList.remove('selection-mode-active');
-        this._restoreActiveToolButton();
+        // Check if pitch box should be visible
+        this.checkPitchVisibility();
     },
 
     toggleSelectMode(btn) {
         if (State.mode === 'select') {
-            this.setAddMode();
+            State.mode = 'add';
+            btn.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-300');
+            btn.classList.add('text-gray-600', 'border-gray-300');
+            
+            // Re-highlight the active tool button if it exists
+            this.updateActiveButton();
         } else {
             State.mode = 'select';
-            document.querySelectorAll('.header-tool-btn').forEach(b => {
-                b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
-                b.classList.add('text-gray-600');
-            });
-            btn.classList.remove('text-gray-600');
-            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-            document.getElementById('control-deck').classList.add('selection-mode-active');
+            btn.classList.remove('text-gray-600', 'border-gray-300');
+            btn.classList.add('bg-blue-100', 'text-blue-700', 'border-blue-300');
+            
+            // Turn off delete mode if on
+            const deleteBtn = document.getElementById('delete-mode-btn');
+            if(deleteBtn) {
+                deleteBtn.classList.remove('bg-red-100', 'text-red-700', 'border-red-300');
+                deleteBtn.classList.add('text-red-600', 'border-red-200');
+            }
+            
+            // Remove active state from tool buttons visually (but keep State.activeTool stored)
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         }
+        this.checkPitchVisibility();
     },
 
     toggleDelete(btn) {
-        if (State.selectedNotes.length > 0) {
-            Input.saveState();
-            const part = State.parts.find(p => p.id === State.activePartId);
-            if (part) {
-                part.notes = part.notes.filter(n => !State.selectedNotes.includes(n));
-                State.selectedNotes = [];
-                NoteRenderer.renderAll();
-            }
-            return;
-        }
-
         if (State.mode === 'delete') {
-            this.setAddMode();
+            State.mode = 'add';
+            btn.classList.remove('bg-red-100', 'text-red-700', 'border-red-300');
+            btn.classList.add('text-red-600', 'border-red-200');
+            this.updateActiveButton();
         } else {
             State.mode = 'delete';
-            document.querySelectorAll('.header-tool-btn').forEach(b => {
-                b.classList.remove('active', 'bg-blue-50', 'text-blue-600', 'border-blue-200');
-                b.classList.add('text-gray-600');
-            });
-            btn.classList.remove('text-red-600');
-            btn.classList.add('active', 'bg-red-600', 'text-white', 'hover:bg-red-700');
-            State.selectedNotes = [];
-            NoteRenderer.renderAll();
+            btn.classList.remove('text-red-600', 'border-red-200');
+            btn.classList.add('bg-red-100', 'text-red-700', 'border-red-300');
+            
+            // Turn off select mode
+            const selectBtn = document.getElementById('select-mode-btn');
+            if(selectBtn) {
+                selectBtn.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-300');
+                selectBtn.classList.add('text-gray-600', 'border-gray-300');
+            }
+            
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         }
-    },
-
-    selectTool(tool, subtype, btn) {
-        // --- SMART EDIT LOGIC ---
-        if (State.mode === 'select' && State.selectedNotes.length > 0) {
-             // If clicking Tempo BUTTON while items selected, check if any are tempo marks
-             if (tool === 'tempo') {
-                 const tempoMark = State.selectedNotes.find(n => n.type === 'tempo');
-                 if (tempoMark) {
-                     ModalView.openTempoModal({ unit: tempoMark.duration, bpm: tempoMark.bpm });
-                     return;
-                 }
-             }
-
-             Input.saveState(); 
-             let modificationsMade = false;
-             
-             State.selectedNotes.forEach(note => {
-                 let isCompatible = false;
-                 if ((note.type === 'note' || note.type === 'rest') && (tool === 'note' || tool === 'rest')) {
-                     isCompatible = true;
-                 } else if (note.type === tool) {
-                     isCompatible = true;
-                 }
-
-                 if (isCompatible) {
-                     if (note.type === tool && tool !== 'note' && tool !== 'rest') {
-                         note.duration = subtype; 
-                         note.subtype = subtype; 
-                     } else {
-                         note.type = tool; 
-                         note.duration = subtype;
-                     }
-                     if (tool !== 'note' && tool !== 'rest') {
-                         delete note.isDotted;
-                         delete note.accidental;
-                     }
-                     modificationsMade = true;
-                 }
-             });
-             
-             if (modificationsMade) {
-                 NoteRenderer.renderAll();
-                 if (btn) {
-                     btn.classList.add('flash-active');
-                     setTimeout(() => btn.classList.remove('flash-active'), 150);
-                 }
-             }
-             return; 
-        }
-        
-        // --- STANDARD TOOL SELECTION ---
-        if (State.mode !== 'add') {
-            this.setAddMode();
-        }
-
-        State.activeTool = tool;
-        if (tool !== 'select') {
-            State.noteDuration = subtype;
-        }
-        
-        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-        if(btn) btn.classList.add('active');
-
-        const accidentals = document.querySelectorAll('.accidental-btn');
-        if (tool === 'note') {
-            accidentals.forEach(b => {
-                b.classList.remove('placeholder', 'opacity-50', 'cursor-not-allowed');
-                b.disabled = false;
-            });
-        } else {
-            accidentals.forEach(b => {
-                b.classList.add('placeholder', 'opacity-50', 'cursor-not-allowed');
-                b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200'); 
-                b.disabled = true;
-            });
-            State.activeAccidental = null; 
-        }
+        this.checkPitchVisibility();
     },
 
     toggleDot(btn) {
-        if (State.mode === 'select' && State.selectedNotes.length > 0) {
-            Input.saveState();
-            let changed = false;
-            State.selectedNotes.forEach(n => {
-                if (n.type === 'note' || n.type === 'rest') {
-                    n.isDotted = !n.isDotted;
-                    changed = true;
-                }
-            });
-            if(changed) {
-                NoteRenderer.renderAll();
-                if (btn) {
-                     btn.classList.add('flash-active');
-                     setTimeout(() => btn.classList.remove('flash-active'), 150);
-                }
-            }
-            return;
-        }
-
         State.isDotted = !State.isDotted;
         if (State.isDotted) {
-            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+            btn.classList.add('text-blue-600', 'font-bold');
         } else {
-            btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        }
-    },
-
-    toggleAccidental(type, btn) {
-        if (btn.classList.contains('placeholder')) return;
-        if (State.mode === 'select' && State.selectedNotes.length > 0) {
-            Input.saveState();
-            let changed = false;
-            State.selectedNotes.forEach(n => {
-                if (n.type === 'note') {
-                    n.accidental = (n.accidental === type) ? null : type;
-                    changed = true;
-                }
-            });
-            if(changed) {
-                NoteRenderer.renderAll();
-                if (btn) {
-                     btn.classList.add('flash-active');
-                     setTimeout(() => btn.classList.remove('flash-active'), 150);
-                }
-            }
-            return;
-        }
-
-        if (State.activeAccidental === type) {
-            State.activeAccidental = null;
-            btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-        } else {
-            State.activeAccidental = type;
-            document.querySelectorAll('.accidental-btn').forEach(b => {
-                b.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
-            });
-            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+            btn.classList.remove('text-blue-600', 'font-bold');
         }
     },
 
     toggleTie(btn) {
         State.isTieMode = !State.isTieMode;
         if (State.isTieMode) {
-            if (State.mode !== 'add') {
-                 this.setAddMode();
-            }
-            btn.classList.add('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+             btn.classList.add('bg-blue-100', 'text-blue-700', 'border-blue-300');
         } else {
-            btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'border-blue-200');
+             btn.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-300');
         }
     },
 
-    _restoreActiveToolButton() {
+    toggleAccidental(type, btn) {
+        if (State.activeAccidental === type) {
+            State.activeAccidental = null;
+            btn.classList.remove('active', 'bg-blue-100', 'text-blue-700');
+        } else {
+            State.activeAccidental = type;
+            document.querySelectorAll('.accidental-btn').forEach(b => b.classList.remove('active', 'bg-blue-100', 'text-blue-700'));
+            btn.classList.add('active', 'bg-blue-100', 'text-blue-700');
+        }
+    },
+
+    updateActiveButton() {
+        if (State.activeTool && State.noteDuration) {
+            // Try to find button matching tool + duration
+            // This is a simplified lookup, might need refinement if tool buttons are complex
+             const selector = `.tool-btn[onclick*="'${State.activeTool}'"][onclick*="'${State.noteDuration}'"]`;
+             const btn = document.querySelector(selector);
+             if (btn) btn.classList.add('active');
+        }
+    },
+
+    updatePitch(text) {
+        const el = document.getElementById('pitch-display');
+        if (el) el.innerText = text;
+    },
+
+    checkPitchVisibility() {
+        const display = document.getElementById('pitch-display');
+        if (!display) return;
+
+        let shouldBeVisible = false;
+
+        // 1. ADD MODE: Visible if tool is Note or Rest
+        if (State.mode === 'add') {
+            if (['note', 'rest'].includes(State.activeTool)) {
+                shouldBeVisible = true;
+            }
+        }
+        
+        // 2. SELECT MODE: Visible if EXACTLY ONE note/rest is selected
+        // This covers dragging a single note to a new pitch
+        if (State.mode === 'select') {
+            if (State.selectedNotes.length === 1) {
+                const n = State.selectedNotes[0];
+                if (n.type === 'note' || n.type === 'rest') {
+                    shouldBeVisible = true;
+                }
+            }
+        }
+
+        if (shouldBeVisible) {
+            display.classList.remove('hidden');
+            display.style.display = 'flex';
+        } else {
+            display.classList.add('hidden');
+            display.style.display = 'none';
+        }
     }
 };
